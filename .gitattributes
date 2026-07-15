@@ -1,0 +1,7 @@
+# Forziamo la normalizzazione dei fine riga in LF per evitare problemi cross-platform (Windows / VS Code Desktop / Linux)
+* text=auto eol=lf
+*.py text eol=lf
+*.md text eol=lf
+*.json text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf

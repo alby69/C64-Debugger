@@ -27,7 +27,9 @@ DEFAULT_CONFIG: Dict[str, Any] = {
         "model": "gpt-4",
         "temperature": 0.2,
         "max_tokens": 1000,
-        "api_key": ""
+        "api_key": "",
+        "c64_llm_url": "http://localhost:7860/api/predict",
+        "ollama_url": "http://localhost:11434/api/chat"
     }
 }
 
@@ -130,3 +132,11 @@ class C64DebuggerConfig:
     @property
     def llm_api_key(self) -> str:
         return self._config["llm"]["api_key"]
+
+    @property
+    def llm_c64_llm_url(self) -> str:
+        return self._config["llm"].get("c64_llm_url", "http://localhost:7860/api/predict")
+
+    @property
+    def llm_ollama_url(self) -> str:
+        return self._config["llm"].get("ollama_url", "http://localhost:11434/api/chat")
