@@ -117,6 +117,62 @@ class C64DebuggerAgentHelper:
     Funge da ponte con l'LLM per spiegare l'errore e auto-curare il codice.
     """
     @staticmethod
+    def analyze_crash_dump_with_llm(
+        config,
+        registers: dict,
+        history: list,
+        stack_trace: list = None
+    ) -> str:
+        """
+        Analizza un dump di crash inviando un prompt strutturato e ottimizzato a un LLM multi-provider.
+        Ottimizza la context window inviando solo il contesto rilevante.
+        """
+        from c64debugger.llm_client import C64DebuggerLLMClient
+
+        # 1. Prompt Engineering Strutturato
+        system_prompt = (
+            "Sei un assistente esperto di programmazione e debugging per il Commodore 64 "
+            "e il microprocessore MOS 6502. Il tuo compito è analizzare crash dump, registri, "
+            "cronologia di esecuzione e lo stack per identificare bug, spiegare l'errore "
+            "e proporre fix accurati in linguaggio macchina/assembly 6502 o BASIC."
+        )
+
+        # 2. Context Window Ottimizzata (limita history e stack trace per risparmiare token)
+        history_optimized = history[-10:] if history else []
+        stack_optimized = stack_trace[:20] if stack_trace is not None else []
+
+        # Formattazione pulita e compatta del contesto
+        regs_str = ", ".join(f"{k}=${v:02X}" if k != "PC" else f"PC=${v:04X}" for k, v in registers.items())
+
+        history_str_list = []
+        for i, step in enumerate(history_optimized):
+            if isinstance(step, dict):
+                pc_val = step.get("PC", 0)
+                step_regs = step.get("registers", {})
+                step_regs_str = ", ".join(f"{k}=${v:02X}" for k, v in step_regs.items() if k != "PC")
+                history_str_list.append(f"  Step {i+1}: PC=${pc_val:04X} ({step_regs_str})")
+            else:
+                history_str_list.append(f"  Step {i+1}: {step}")
+        history_str = "\n".join(history_str_list) if history_str_list else "Nessuna cronologia disponibile."
+
+        stack_str = ", ".join(f"${v:02X}" for v in stack_optimized) if stack_optimized else "Stack vuoto o non disponibile."
+
+        user_prompt = (
+            "Analizza il seguente stato di crash/debug del Commodore 64:\n\n"
+            f"[REGISTRI CPU 6502]\n{regs_str}\n\n"
+            f"[CRONOLOGIA ULTIME ISTRUZIONI]\n{history_str}\n\n"
+            f"[STACK TRACE / MEMORIA SOSPETTA]\n{stack_str}\n\n"
+            "Fornisci un'analisi contenente:\n"
+            "1. Tipo di Errore rilevato (es. Stack Overflow/Underflow, Ciclo Infinito, RTS non valido, o altro)\n"
+            "2. Spiegazione dettagliata del problema\n"
+            "3. Proposta di patch o codice correttivo in Assembly 6502 o BASIC."
+        )
+
+        # 3. Invio della richiesta all'LLM client
+        client = C64DebuggerLLMClient(config)
+        return client.call_llm(system_prompt, user_prompt)
+
+    @staticmethod
     def analyze_crash_dump(registers: dict, history: list, stack_trace: list = None) -> dict:
         """
         Analizza un dump di crash e identifica la causa probabile del fallimento (RTS sbilanciato, ciclo infinito, etc).

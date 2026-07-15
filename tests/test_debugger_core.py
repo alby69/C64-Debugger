@@ -75,5 +75,167 @@ class TestC64DebuggerAgentHelper(unittest.TestCase):
         self.assertEqual(report["error_type"], "Unknown")
         self.assertIn("Crash rilevato", report["explanation"])
 
+
+class TestLLMIntegration(unittest.TestCase):
+    def setUp(self):
+        from c64debugger.config import C64DebuggerConfig
+        self.config = C64DebuggerConfig()
+
+    @patch("urllib.request.urlopen")
+    def test_openai_provider(self, mock_urlopen):
+        from c64debugger.config import C64DebuggerConfig
+        from c64debugger.llm_client import C64DebuggerLLMClient
+
+        # Configure for OpenAI
+        config = C64DebuggerConfig({
+            "llm": {
+                "provider": "openai",
+                "model": "gpt-4",
+                "api_key": "test_openai_key"
+            }
+        })
+
+        # Mock response
+        mock_response = MagicMock()
+        mock_response.read.return_value = b'{"choices": [{"message": {"content": "OpenAI Test Response"}}]}'
+        mock_urlopen.return_value.__enter__.return_value = mock_response
+
+        client = C64DebuggerLLMClient(config)
+        res = client.call_llm("System", "User")
+        self.assertEqual(res, "OpenAI Test Response")
+
+        # Verify call arguments
+        args, kwargs = mock_urlopen.call_args
+        req = args[0]
+        self.assertEqual(req.full_url, "https://api.openai.com/v1/chat/completions")
+        self.assertEqual(req.headers["Authorization"], "Bearer test_openai_key")
+
+    @patch("urllib.request.urlopen")
+    def test_anthropic_provider(self, mock_urlopen):
+        from c64debugger.config import C64DebuggerConfig
+        from c64debugger.llm_client import C64DebuggerLLMClient
+
+        config = C64DebuggerConfig({
+            "llm": {
+                "provider": "anthropic",
+                "model": "claude-3",
+                "api_key": "test_anthropic_key"
+            }
+        })
+
+        mock_response = MagicMock()
+        mock_response.read.return_value = b'{"content": [{"text": "Anthropic Test Response"}]}'
+        mock_urlopen.return_value.__enter__.return_value = mock_response
+
+        client = C64DebuggerLLMClient(config)
+        res = client.call_llm("System", "User")
+        self.assertEqual(res, "Anthropic Test Response")
+
+        args, kwargs = mock_urlopen.call_args
+        req = args[0]
+        self.assertEqual(req.full_url, "https://api.anthropic.com/v1/messages")
+        self.assertEqual(req.headers["X-api-key"], "test_anthropic_key")
+
+    @patch("urllib.request.urlopen")
+    def test_gemini_provider(self, mock_urlopen):
+        from c64debugger.config import C64DebuggerConfig
+        from c64debugger.llm_client import C64DebuggerLLMClient
+
+        config = C64DebuggerConfig({
+            "llm": {
+                "provider": "gemini",
+                "model": "gemini-pro",
+                "api_key": "test_gemini_key"
+            }
+        })
+
+        mock_response = MagicMock()
+        mock_response.read.return_value = b'{"candidates": [{"content": {"parts": [{"text": "Gemini Test Response"}]}}]}'
+        mock_urlopen.return_value.__enter__.return_value = mock_response
+
+        client = C64DebuggerLLMClient(config)
+        res = client.call_llm("System", "User")
+        self.assertEqual(res, "Gemini Test Response")
+
+        args, kwargs = mock_urlopen.call_args
+        req = args[0]
+        self.assertIn("generativelanguage.googleapis.com", req.full_url)
+        self.assertIn("test_gemini_key", req.full_url)
+
+    @patch("urllib.request.urlopen")
+    def test_ollama_provider(self, mock_urlopen):
+        from c64debugger.config import C64DebuggerConfig
+        from c64debugger.llm_client import C64DebuggerLLMClient
+
+        config = C64DebuggerConfig({
+            "llm": {
+                "provider": "ollama",
+                "model": "llama3",
+                "ollama_url": "http://localhost:11434/api/chat"
+            }
+        })
+
+        mock_response = MagicMock()
+        mock_response.read.return_value = b'{"message": {"content": "Ollama Test Response"}}'
+        mock_urlopen.return_value.__enter__.return_value = mock_response
+
+        client = C64DebuggerLLMClient(config)
+        res = client.call_llm("System", "User")
+        self.assertEqual(res, "Ollama Test Response")
+
+        args, kwargs = mock_urlopen.call_args
+        req = args[0]
+        self.assertEqual(req.full_url, "http://localhost:11434/api/chat")
+
+    @patch("urllib.request.urlopen")
+    def test_c64_llm_provider(self, mock_urlopen):
+        from c64debugger.config import C64DebuggerConfig
+        from c64debugger.llm_client import C64DebuggerLLMClient
+
+        config = C64DebuggerConfig({
+            "llm": {
+                "provider": "c64-llm",
+                "c64_llm_url": "http://localhost:7860/api/predict"
+            }
+        })
+
+        mock_response = MagicMock()
+        mock_response.read.return_value = b'{"data": ["C64-LLM Gradio Test Response"]}'
+        mock_urlopen.return_value.__enter__.return_value = mock_response
+
+        client = C64DebuggerLLMClient(config)
+        res = client.call_llm("System", "User")
+        self.assertEqual(res, "C64-LLM Gradio Test Response")
+
+        args, kwargs = mock_urlopen.call_args
+        req = args[0]
+        self.assertEqual(req.full_url, "http://localhost:7860/api/predict")
+
+    @patch("urllib.request.urlopen")
+    def test_analyze_crash_dump_with_llm(self, mock_urlopen):
+        from c64debugger.config import C64DebuggerConfig
+        from c64debugger.debugger_core import C64DebuggerAgentHelper
+
+        config = C64DebuggerConfig({
+            "llm": {
+                "provider": "openai",
+                "api_key": "test"
+            }
+        })
+
+        mock_response = MagicMock()
+        mock_response.read.return_value = b'{"choices": [{"message": {"content": "LLM Analysis Result"}}]}'
+        mock_urlopen.return_value.__enter__.return_value = mock_response
+
+        registers = {"PC": 0xC000, "A": 0xFF, "X": 0x00, "Y": 0x12, "SP": 0xFD}
+        history = [{"PC": 0xBFFF, "registers": registers}]
+        stack_trace = [0x01, 0x02]
+
+        res = C64DebuggerAgentHelper.analyze_crash_dump_with_llm(
+            config, registers, history, stack_trace
+        )
+        self.assertEqual(res, "LLM Analysis Result")
+
+
 if __name__ == "__main__":
     unittest.main()
