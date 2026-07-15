@@ -4,9 +4,28 @@ import subprocess
 import os
 import time
 import logging
+from logging.handlers import RotatingFileHandler
+from typing import Dict, Any, Union, Tuple, Optional, List
+from .vice_protocol import VICEMonitorProtocol
 
-logging.basicConfig(level=logging.INFO)
+# Configure logging with support for file rotators
 logger = logging.getLogger("VICERemoteMonitorBridge")
+
+def setup_logger(log_file: Optional[str] = None, log_level: int = logging.INFO, max_bytes: int = 10 * 1024 * 1024, backup_count: int = 5) -> None:
+    """
+    Sets up the bridge logger. Optionally adds a rotating file handler.
+    """
+    logger.setLevel(log_level)
+    # Avoid duplicate handlers if already configured
+    if not logger.handlers:
+        console_handler = logging.StreamHandler()
+        console_handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+        logger.addHandler(console_handler)
+
+    if log_file:
+        file_handler = RotatingFileHandler(log_file, maxBytes=max_bytes, backupCount=backup_count)
+        file_handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+        logger.addHandler(file_handler)
 
 class VICERemoteMonitorBridge:
     """
@@ -15,13 +34,13 @@ class VICERemoteMonitorBridge:
     via socket TCP al monitor (testuale o binario).
     """
 
-    def __init__(self, host: str = "127.0.0.1", port: int = 6510):
-        self.host = host
-        self.port = port
-        self.socket = None
-        self.vice_process = None
+    def __init__(self, host: str = "127.0.0.1", port: int = 6510) -> None:
+        self.host: str = host
+        self.port: int = port
+        self.socket: Optional[socket.socket] = None
+        self.vice_process: Optional[subprocess.Popen] = None
 
-    def start_vice_headless(self, prg_path: str = None, limit_cycles: int = 10000000, extra_args: list = None) -> bool:
+    def start_vice_headless(self, prg_path: Optional[str] = None, limit_cycles: int = 10000000, extra_args: Optional[List[str]] = None) -> bool:
         """
         Avvia l'emulatore x64sc (VICE) in modalità headless (senza interfaccia grafica)
         abilitando il monitor remoto TCP sulla porta configurata.
@@ -61,29 +80,38 @@ class VICERemoteMonitorBridge:
             logger.error(f"Errore durante l'avvio di VICE: {e}")
             return False
 
-    def connect(self, timeout: float = 2.0) -> tuple:
+    def connect(self, timeout: float = 2.0, max_retries: int = 5, backoff_factor: float = 1.5) -> Tuple[bool, str]:
         """
-        Connette il bridge alla porta monitor TCP di VICE.
+        Connette il bridge alla porta monitor TCP di VICE con retry ed esponenziale backoff.
         """
-        try:
-            self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self.socket.settimeout(timeout)
-            self.socket.connect((self.host, self.port))
-
-            # Legge il banner iniziale inviato da VICE (se presente)
+        retry_delay = 0.5
+        for attempt in range(max_retries):
             try:
-                banner = self.socket.recv(1024).decode("utf-8", errors="ignore")
-                logger.info(f"Ricevuto banner di benvenuto da VICE: {banner.strip()}")
-            except socket.timeout:
-                pass
+                logger.info(f"Tentativo di connessione a VICE su {self.host}:{self.port} (tentativo {attempt + 1}/{max_retries})...")
+                self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                self.socket.settimeout(timeout)
+                self.socket.connect((self.host, self.port))
 
-            logger.info(f"Connesso con successo al Monitor di VICE su {self.host}:{self.port}")
-            return True, "Connesso con successo!"
-        except Exception as e:
-            self.socket = None
-            err_msg = f"Impossibile connettersi al monitor TCP di VICE: {e}."
-            logger.error(err_msg)
-            return False, err_msg
+                # Legge il banner iniziale inviato da VICE (se presente)
+                try:
+                    banner = self.socket.recv(1024).decode("utf-8", errors="ignore")
+                    logger.info(f"Ricevuto banner di benvenuto da VICE: {banner.strip()}")
+                except socket.timeout:
+                    pass
+
+                logger.info(f"Connesso con successo al Monitor di VICE su {self.host}:{self.port}")
+                return True, "Connesso con successo!"
+            except Exception as e:
+                self.socket = None
+                if attempt == max_retries - 1:
+                    err_msg = f"Impossibile connettersi al monitor TCP di VICE dopo {max_retries} tentativi: {e}."
+                    logger.error(err_msg)
+                    return False, err_msg
+                logger.warning(f"Connessione fallita ({e}). Attesa di {retry_delay:.2f} secondi prima del prossimo tentativo...")
+                time.sleep(retry_delay)
+                retry_delay *= backoff_factor
+
+        return False, "Impossibile connettersi."
 
     def send_command(self, cmd: str) -> str:
         """
@@ -134,62 +162,22 @@ class VICERemoteMonitorBridge:
             logger.error(f"Errore di comunicazione: {e}")
             return f"Errore: {e}"
 
-    def get_registers(self) -> dict:
+    def get_registers(self) -> Dict[str, Union[int, str]]:
         """
         Esegue il comando 'r' sul monitor e decodifica i registri del processore 6502.
         Ritorna un dizionario con PC, A, X, Y, SP e i flag.
         """
         response = self.send_command("r")
-        registers = {"PC": 0, "A": 0, "X": 0, "Y": 0, "SP": 0, "Flags": ""}
-
-        # Esempio di riga tipica del comando 'r' di VICE:
-        # ADDR A  X  Y  SP 00 01 NV-BDIZC
-        # .c000 00 00 00 f6 2f 37 00101010
-        # Cerchiamo di fare il parsing con regex
-        import re
-        match = re.search(r'\.([0-9a-fA-F]{4})\s+([0-9a-fA-F]{2})\s+([0-9a-fA-F]{2})\s+([0-9a-fA-F]{2})\s+([0-9a-fA-F]{2})', response)
-        if match:
-            registers["PC"] = int(match.group(1), 16)
-            registers["A"] = int(match.group(2), 16)
-            registers["X"] = int(match.group(3), 16)
-            registers["Y"] = int(match.group(4), 16)
-            registers["SP"] = int(match.group(5), 16)
-        else:
-            # Alternativo: parsing riga per riga per chiavi esplicite
-            for line in response.splitlines():
-                if "PC=" in line or "A=" in line:
-                    for part in line.split():
-                        if "=" in part:
-                            k, v = part.split("=")
-                            try:
-                                registers[k] = int(v.replace("$", ""), 16)
-                            except ValueError:
-                                registers[k] = v
-        return registers
+        return VICEMonitorProtocol.parse_registers(response)
 
     def read_memory(self, start_addr: int, end_addr: int) -> bytes:
         """
         Legge una porzione di memoria usando il comando 'm'.
         Ritorna l'array di byte letti.
         """
-        cmd = f"m {start_addr:04x} {end_addr:04x}"
+        cmd = VICEMonitorProtocol.format_read_memory(start_addr, end_addr)
         response = self.send_command(cmd)
-
-        # Esempio di riga di output:
-        # .c000 00 01 02 03 04 05 06 07  ........
-        byte_list = []
-        for line in response.splitlines():
-            line = line.strip()
-            if line.startswith(".") or line.startswith(">"):
-                # Rimuove l'indirizzo iniziale (es. .c000)
-                parts = line.split()
-                if len(parts) > 1:
-                    for part in parts[1:]:
-                        # Se incontriamo la rappresentazione ASCII (es. "........") o la fine dei byte
-                        if len(part) != 2 or not all(c in "0123456789abcdefABCDEF" for c in part):
-                            break
-                        byte_list.append(int(part, 16))
-        return bytes(byte_list)
+        return VICEMonitorProtocol.parse_memory(response)
 
     def write_memory(self, addr: int, data: bytes) -> bool:
         """
@@ -197,8 +185,7 @@ class VICERemoteMonitorBridge:
         """
         if not data:
             return True
-        bytes_str = " ".join(f"{b:02x}" for b in data)
-        cmd = f"> {addr:04x} {bytes_str}"
+        cmd = VICEMonitorProtocol.format_write_memory(addr, data)
         self.send_command(cmd)
         return True
 
@@ -206,41 +193,42 @@ class VICERemoteMonitorBridge:
         """
         Imposta un breakpoint ad un indirizzo specifico.
         """
-        response = self.send_command(f"break {addr:04x}")
+        cmd = VICEMonitorProtocol.format_breakpoint(addr)
+        response = self.send_command(cmd)
         return "Breakpoint" in response or "impostato" in response or "Breakpoint" in self.send_command("bk")
 
-    def step_instruction(self) -> dict:
+    def step_instruction(self) -> Dict[str, Union[int, str]]:
         """
         Esegue un singolo step (istruzione successiva) e ritorna lo stato dei registri.
         """
         self.send_command("z")  # Comando 'z' in VICE esegue il single step (oppure 'step')
         return self.get_registers()
 
-    def stop_execution(self):
+    def stop_execution(self) -> None:
         """
         Invia un comando di stop all'emulatore.
         """
         self.send_command("stop")
 
-    def resume_execution(self):
+    def resume_execution(self) -> None:
         """
         Invia un comando di go per riprendere l'esecuzione ordinaria.
         """
         self.send_command("g")
 
-    def disconnect(self):
+    def disconnect(self) -> None:
         """
         Chiude la connessione socket.
         """
         if self.socket:
             try:
                 self.socket.close()
-            except:
-                pass
+            except Exception as e:
+                logger.debug(f"Errore durante la chiusura del socket: {e}")
             self.socket = None
             logger.info("Connessione socket chiusa.")
 
-    def kill_vice(self):
+    def kill_vice(self) -> None:
         """
         Termina forzatamente il processo dell'emulatore VICE.
         """
@@ -249,12 +237,12 @@ class VICERemoteMonitorBridge:
             try:
                 self.vice_process.kill()
                 logger.info("Processo VICE terminato.")
-            except:
-                pass
+            except Exception as e:
+                logger.debug(f"Errore durante il kill di VICE: {e}")
             self.vice_process = None
         else:
             # Fallback generico per killare istanze orfane
             try:
                 os.system("killall -9 x64sc 2>/dev/null || true")
-            except:
-                pass
+            except Exception as e:
+                logger.debug(f"Errore durante il killall di x64sc: {e}")
