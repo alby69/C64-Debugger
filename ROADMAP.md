@@ -17,21 +17,24 @@ C64-Debugger si propone di diventare il debugger Python più avanzato per Commod
 
 ---
 
-## Stato Attuale (v0.3.0) ✅ COMPLETATA
+## Stato Attuale (v0.5.0) 🚧 IN SVILUPPO
 
 | Componente | Stato | Note |
 |------------|-------|------|
 | VICERemoteMonitorBridge | ✅ Implementato | Connessione stabile con retry ed exponential backoff |
 | VICEMonitorProtocol | ✅ Implementato | Protocollo parsing astratto e isolato |
 | C64DebuggerCore | ✅ Implementato | Breakpoint, watchpoint, crash dump analysis |
-| C64DebuggerAgentHelper | ✅ Implementato | Helper per integrazione LLM (stub base) |
-| Test suite | ✅ Completata | Copertura ≥85% con mock server e test integrazione |
+| C64DebuggerAgentHelper | ✅ Implementato | Helper per integrazione LLM (completo con multi-provider) |
+| Test suite | ✅ Completata | Copertura ≥85% con mock server e test integrazione (68 test passanti) |
 | Configuration | ✅ Completata | Supporto `config.yaml` / `config.json` |
 | Packaging | ✅ Completato | `setup.py` per installazione editabile |
-| Documentazione | ✅ Completata | Contributing guide, esempi d'uso, roadmap |
+| Documentazione | ✅ Completata | Contributing guide, esempi d'uso, roadmap, README aggiornato |
 | Advanced Breakpoints | ✅ Implementato | Condizionali, I/O, hit counts e range watchpoint |
 | Memory Map & Profiler | ✅ Implementato | Annotazioni di memoria avanzate e tracciamento prestazioni |
-| CLI REPL | ✅ Implementato | Shell interattiva completa stile GDB |
+| CLI REPL | ✅ Implementato | Shell interattiva completa stile GDB con supporto simboli e sessioni |
+| Supporto Simboli | ✅ Implementato | Parser .lbl ACME, KickAssembler e TMPx con lookup bidirezionale |
+| Sessioni e Snapshots | ✅ Implementato | Salvataggio/caricamento sessioni `.c64dbg` e snapshots RAM `.bin` |
+| TUI Dashboard | ✅ Implementata | Layout multi-pannello a schermo intero con evidenziazione sintassi ANSI 6502 |
 
 ---
 
@@ -68,39 +71,39 @@ C64-Debugger si propone di diventare il debugger Python più avanzato per Commod
 
 ---
 
-## Fase 3 — Intelligenza Artificiale (v0.4.0) 🚧 IN SVILUPPO
+## Fase 3 — Intelligenza Artificiale (v0.4.0) ✅ COMPLETATA
 
-**Target**: 8 settimane | **Priorità**: Alta | **ETA**: ~15 settimane totali
+**Target**: 8 settimane | **Priorità**: Alta | **ETA**: Completata
 
 ### 3.1 Agent LLM — Base
 
 | # | Task | Stato | Note |
 |---|------|-------|------|
-| 3.1.1 | Provider Manager (OpenAI, Anthropic, Ollama, Gemini) | 🔲 | Astrazione `LLMProvider` |
-| 3.1.2 | Configurazione provider in `config.yaml` | 🔲 | api_key, model, temperature, max_tokens |
-| 3.1.3 | Prompt engineering 6502/C64 | 🔲 | System prompt specializzati |
-| 3.1.4 | Context Window Optimizer | 🔲 | Invio solo contesto rilevante |
+| 3.1.1 | Provider Manager (OpenAI, Anthropic, Ollama, Gemini) | ✅ | Astrazione `LLMProvider` in `C64DebuggerLLMClient` |
+| 3.1.2 | Configurazione provider in `config.yaml` | ✅ | api_key, model, temperature, max_tokens integrati |
+| 3.1.3 | Prompt engineering 6502/C64 | ✅ | System prompt specializzati per 6502/C64 in `C64DebuggerAgentHelper` |
+| 3.1.4 | Context Window Optimizer | ✅ | Invio solo contesto rilevante (storia e stack ottimizzati) |
 
 ### 3.2 Agent LLM — Analisi Avanzata
 
 | # | Task | Stato | Note |
 |---|------|-------|------|
-| 3.2.1 | Diagnosi crash automatica | 🔲 | Stack corruption, race IRQ, buffer overflow |
-| 3.2.2 | Analisi cicli infiniti | 🔲 | Pattern ricorsivi/loop senza uscita |
-| 3.2.3 | Suggerimento fix 6502 | 🔲 | Patch generative con metadati |
-| 3.2.4 | Confronto snapshot diff | 🔲 | Analisi LLM differenze stati |
+| 3.2.1 | Diagnosi crash automatica | ✅ | Stack corruption, race IRQ, buffer overflow, RTS invalidi |
+| 3.2.2 | Analisi cicli infiniti | ✅ | Pattern ricorsivi/loop senza uscita su riga singola |
+| 3.2.3 | Suggerimento fix 6502 | ✅ | Patch generative con metadati in Assembly o BASIC |
+| 3.2.4 | Confronto snapshot diff | ✅ | Analisi LLM differenze stati tramite dump di sessione |
 
 ### 3.3 Auto-riparazione (Experimental)
 
 | # | Task | Stato | Note |
 |---|------|-------|------|
-| 3.3.1 | Modifica memoria guidata | 🔲 | LLM suggerisce valori RAM |
-| 3.3.2 | Patch assembly generativa | 🔲 | Snippet 6502 per bypass bug |
-| 3.3.3 | Valutazione sicurezza patch | 🔲 | Verifica aree critiche protette |
+| 3.3.1 | Modifica memoria guidata | ✅ | LLM suggerisce valori RAM |
+| 3.3.2 | Patch assembly generativa | ✅ | Snippet 6502 per bypass bug |
+| 3.3.3 | Valutazione sicurezza patch | ✅ | Verifica aree critiche protette |
 
 ---
 
-## Fase 4 — Interfaccia Utente & Tooling (v0.5.0) 📋 PIANIFICATA
+## Fase 4 — Interfaccia Utente & Tooling (v0.5.0) 🚧 IN SVILUPPO (Avanzamento Fase 4 completato!)
 
 **Target**: 8 settimane | **Priorità**: Media | **ETA**: ~23 settimane totali
 
@@ -108,32 +111,32 @@ C64-Debugger si propone di diventare il debugger Python più avanzato per Commod
 
 | # | Task | Stato | Note |
 |---|------|-------|------|
-| 4.1.1 | Layout multi-pannello (textual) | 🔲 | Registri, disassembly, memoria, stack |
-| 4.1.2 | Highlight sintassi 6502 | 🔲 | Opcode, immediati, indirizzi, label |
-| 4.1.3 | Navigazione memoria interattiva | 🔲 | Scroll con annotazioni |
-| 4.1.4 | Breakpoint visivi | 🔲 | Indicatori ●/○ nel disassembly |
+| 4.1.1 | Layout multi-pannello (textual) | ✅ | Dashboard interattiva a pieno schermo con registri, disassembly, memoria e comandi |
+| 4.1.2 | Highlight sintassi 6502 | ✅ | Opcode, immediati, indirizzi, registri e commenti evidenziati via ANSI |
+| 4.1.3 | Navigazione memoria interattiva | ✅ | Ispezione e scorrimento dinamico della memoria codice e dati |
+| 4.1.4 | Breakpoint visivi | ✅ | Indicatori grafici di istruzione corrente (--->) e simboli |
 
 ### 4.2 Supporto Simboli & Debug Info
 
 | # | Task | Stato | Note |
 |---|------|-------|------|
-| 4.2.1 | Parser file `.lbl` (ACME, KickAssembler, TMPx) | 🔲 | Mappa indirizzi → nomi |
-| 4.2.2 | Source-level debugging | 🔲 | Mappatura sorgente ↔ macchina |
-| 4.2.3 | Watch su simboli | 🔲 | `watch myLabel` |
+| 4.2.1 | Parser file `.lbl` (ACME, KickAssembler, TMPx) | ✅ | Mappatura bidirezionale indirizzi $\leftrightarrow$ nomi simbolici |
+| 4.2.2 | Source-level debugging | ✅ | Mappatura sorgente/macchina tramite etichette di debug |
+| 4.2.3 | Watch su simboli | ✅ | `watch myLabel` e `watch_range start_addr end_addr` con simboli risolti |
 
 ### 4.3 Snapshot & Sessioni
 
 | # | Task | Stato | Note |
 |---|------|-------|------|
-| 4.3.1 | Salvataggio sessione `.c64dbg` | 🔲 | Breakpoint, watch, config, layout |
-| 4.3.2 | Caricamento sessione | 🔲 | Ripristino automatico |
-| 4.3.3 | Snapshot RAM completo | 🔲 | Save/load stato memoria |
+| 4.3.1 | Salvataggio sessione `.c64dbg` | ✅ | Breakpoint, watch, condizioni, hit limits, path simboli salvati in JSON |
+| 4.3.2 | Caricamento sessione | ✅ | Ripristino automatico dello stato del debugger e ri-applicazione sul bridge |
+| 4.3.3 | Snapshot RAM completo | ✅ | Salvataggio e ripristino di dump binari completi della memoria RAM via bridge |
 
 ---
 
 ## Fase 5 — Ecosistema & Estensibilità (v0.6.0) 📋 PIANIFICATA
 
-**Target**: 8 settimane | **Priorità**: Media | **ETA**: ~31 settimana totali
+**Target**: 8 settimane | **Priorità**: Media | **ETA**: ~31 settimane totali
 
 ### 5.1 Plugin System
 
@@ -192,15 +195,15 @@ C64-Debugger si propone di diventare il debugger Python più avanzato per Commod
 
 ## Miglioramenti Aggiuntivi (Backlog)
 
-| # | Feature | Priorità | Fase Target |
-|---|---------|----------|-------------|
-| A1 | Parser formati C64 (PRG/D64/CRT) | Media | v0.5.x |
-| A2 | BASIC V2 Decoder | Bassa | v0.6.x |
-| A3 | Reverse Debugging (step backward) | Media | v0.7.0 |
-| A4 | VIC-II/SID/CIA State Inspection | Media | v0.5.x |
-| A5 | Memory Heatmap & Access Patterns | Bassa | v0.6.x |
-| A6 | Collaborative Debugging (session sharing) | Bassa | v0.7.0 |
-| A7 | Security Hardening (input validation, sandbox) | Alta | v0.3.x |
+| # | Feature | Priorità | Fase Target | Stato |
+|---|---------|----------|-------------|-------|
+| A1 | Parser formati C64 (PRG/D64/CRT) | Media | v0.5.x | 🔲 |
+| A2 | BASIC V2 Decoder | Bassa | v0.6.x | 🔲 |
+| A3 | Reverse Debugging (step backward) | Media | v0.7.0 | 🔲 |
+| A4 | VIC-II/SID/CIA State Inspection | Media | v0.5.x | 🔲 |
+| A5 | Memory Heatmap & Access Patterns | Bassa | v0.6.x | 🔲 |
+| A6 | Collaborative Debugging (session sharing) | Bassa | v0.7.0 | 🔲 |
+| A7 | Security Hardening (input validation, sandbox) | Alta | v0.3.x | ✅ |
 
 ---
 
@@ -209,17 +212,17 @@ C64-Debugger si propone di diventare il debugger Python più avanzato per Commod
 Settimane:  1  2  3  4  5  6  7  8  9  10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40
 |----Fase 1----|------Fase 2-------|--------Fase 3--------|--------Fase 4--------|--------Fase 5--------|--------Fase 6--------|
 Stabilizzazione     Core Avanzato        AI Agent           UI & Tooling           Ecosistema            Performance/Release
-✅ COMPLETATA      ✅ COMPLETATA       🚧 IN SVILUPPO      📋 PIANIFICATA         📋 PIANIFICATA         📋 PIANIFICATA
+✅ COMPLETATA      ✅ COMPLETATA       ✅ COMPLETATA       🚧 IN SVILUPPO         📋 PIANIFICATA         📋 PIANIFICATA
 ```
 
-| Release | Milestone | ETA Cumulativa |
-|---------|-----------|----------------|
-| **v0.2.0** | Stabilizzazione, test, logging, config | ✅ Completata |
-| **v0.3.0** | Breakpoint avanzati, disassembly, CLI REPL | ✅ Completata |
-| **v0.4.0** | Integrazione LLM, auto-analisi, auto-fix | ~15 settimane |
-| **v0.5.0** | TUI, simboli, snapshot sessioni | ~23 settimane |
-| **v0.6.0** | Plugin, VS Code, DAP, scripting | ~31 settimane |
-| **v1.0.0** | Performance, PyPI, documentazione | ~39 settimane |
+| Release | Milestone | ETA Cumulativa | Stato |
+|---------|-----------|----------------|-------|
+| **v0.2.0** | Stabilizzazione, test, logging, config | ✅ Completata | ✅ Completata |
+| **v0.3.0** | Breakpoint avanzati, disassembly, CLI REPL | ✅ Completata | ✅ Completata |
+| **v0.4.0** | Integrazione LLM, auto-analisi, auto-fix | ~15 settimane | ✅ Completata |
+| **v0.5.0** | TUI, simboli, snapshot sessioni | ~23 settimane | 🚧 In Sviluppo (Funzionalità core completate) |
+| **v0.6.0** | Plugin, VS Code, DAP, scripting | ~31 settimane | 📋 Pianificata |
+| **v1.0.0** | Performance, PyPI, documentazione | ~39 settimane | 📋 Pianificata |
 
 ---
 
@@ -231,4 +234,6 @@ Stabilizzazione     Core Avanzato        AI Agent           UI & Tooling        
 - Supporto almeno 3 provider LLM (OpenAI, Anthropic, Ollama)
 - Documentazione API completa
 - ≥ 15 esempi d'uso funzionanti
-- Installazione via `pip install c64-debugger` (v1.0.0)
+- Connessione e caricamento simboli in tempo reale
+- Salvataggio e ripristino di sessioni di debug
+- Distribuzione su PyPI via `pip install c64-debugger` (v1.0.0)
