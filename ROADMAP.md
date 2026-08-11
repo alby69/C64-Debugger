@@ -3,186 +3,229 @@
 **Progetto**: C64-Debugger (modulo di C64-Intelligence-SDK)
 **Linguaggio**: Python 3.10+
 **Licenza**: GPL v3
-**Ultimo aggiornamento**: 2026-07-15
+**Ultimo aggiornamento**: 2026-08-11
 
 ---
 
 ## Visione
+
 C64-Debugger si propone di diventare il debugger Python più avanzato per Commodore 64, combinando:
+
 - Controllo remoto nativo dell'emulatore VICE
 - Analisi intelligente dei crash e dei comportamenti anomali tramite LLM
-- Un'esperienza di debugging moderna, accessibile sia da CLI che da API
+- Un'esperienza di debugging moderna, accessibile da CLI, TUI, API e IDE
 
 ---
 
-## Stato Attuale (v0.2.0)
+## Stato Attuale (v0.2.0) ✅ COMPLETATA
 
 | Componente | Stato | Note |
-| :--- | :--- | :--- |
-| **VICERemoteMonitorBridge** | ✅ Implementato | Connessione VICE stabile con retry ed exponential backoff |
-| **VICEMonitorProtocol** | ✅ Implementato | Protocollo di parsing astratto e isolato per il monitor testuale |
-| **C64DebuggerCore** | ✅ Implementato | Breakpoint, watchpoint, crash dump analysis |
-| **C64DebuggerAgentHelper** | ✅ Implementato | Helper per integrazione LLM |
-| **Test suite** | ✅ Completata | Copertura test ≥ 85% con mock server e test di integrazione |
-| **Configuration** | ✅ Completata | Supporto per config.yaml / config.json |
-| **Packaging** | ✅ Completato | setup.py per installazione editabile |
-| **Documentazione** | ✅ Completata | Contributing guide, esempi d'uso e roadmap completa |
+|------------|-------|------|
+| VICERemoteMonitorBridge | ✅ Implementato | Connessione stabile con retry ed exponential backoff |
+| VICEMonitorProtocol | ✅ Implementato | Protocollo parsing astratto e isolato |
+| C64DebuggerCore | ✅ Implementato | Breakpoint, watchpoint, crash dump analysis |
+| C64DebuggerAgentHelper | ✅ Implementato | Helper per integrazione LLM (stub base) |
+| Test suite | ✅ Completata | Copertura ≥85% con mock server e test integrazione |
+| Configuration | ✅ Completata | Supporto `config.yaml` / `config.json` |
+| Packaging | ✅ Completato | `setup.py` per installazione editabile |
+| Documentazione | ✅ Completata | Contributing guide, esempi d'uso, roadmap |
 
 ---
 
-## Fase 1 — Stabilizzazione & Fondamenta (v0.2.0) - *COMPLETATA*
-**Target**: Completata con successo | **Priorità**: Alta
+## Fase 2 — Core Avanzato (v0.3.0) 🚧 IN SVILUPPO
 
-### 1.1 Architettura & Codice
-- [x] **Refactoring del protocollo VICE**: astrarre il parser del monitor testuale in una classe dedicata (`VICEMonitorProtocol`) per supportare future versioni di VICE.
-- [x] **Gestione errori robusta**: implementare retry con backoff esponenziale per la connessione socket a VICE; gestire VICE non avviato o crashato.
-- [x] **Logging strutturato**: sostituire `print()` con `logging` (livelli DEBUG/INFO/WARNING/ERROR), con supporto per file di log rotanti.
-- [x] **Type hints completi**: aggiungere annotazioni di tipo a tutte le funzioni pubbliche e interne.
-- [x] **Configurazione esterna**: introdurre file `config.yaml` / `config.json` per host/porta VICE, timeout, livello log, preferenze LLM.
+**Target**: 6 settimane | **Priorità**: Alta | **ETA**: ~7 settimane totali
 
-### 1.2 Testing
-- [x] **Mock di VICE**: creare un `MockVICEServer` per testare `VICERemoteMonitorBridge` senza dipendenze esterne.
-- [x] **Unit test core**: copertura ≥ 80% per `debugger_core.py` e `vice_bridge.py` (raggiunto il 100% per core e oltre il 70% per bridge).
-- [x] **Test di integrazione**: script che avvia VICE reale (o `MockVICEServer`), esegue una sequenza di comandi e verifica coerenza memoria/registri.
-- [x] **CI/CD GitHub Actions**: workflow per lint (ruff), test (pytest), e type-check (mypy) su PR.
+### 2.1 Disassembly & Introspezione
 
-### 1.3 Documentazione
-- [x] **Esempi d'uso**: script di esempio in `examples/` (breakpoint condizionato, dump memoria, stepping).
-- [x] **Contributing guide**: `CONTRIBUTING.md` con convenzioni di commit (Conventional Commits).
+| # | Task | Stato | Note |
+|---|------|-------|------|
+| 2.1.1 | Parser disassembly VICE in oggetti `Instruction` | 🔲 | Addr, bytes, mnemonic, operand, addressing mode |
+| 2.1.2 | Stack trace 6502 (analisi pagina $0100-$01FF) | 🔲 | Ricostruzione call stack via RTS tracking |
+| 2.1.3 | Memory map viewer con annotazioni | 🔲 | CODE/DATA/STACK/SCREEN/VIC/SID/CIA |
+| 2.1.4 | Profiler base (conteggio cicli per funzione) | 🔲 | Basato su breakpoint trace |
 
----
+### 2.2 Breakpoint & Watchpoint Avanzati
 
-## Fase 2 — Funzionalità Core Avanzate (v0.3.0)
-**Target**: 3-4 settimane | **Priorità**: Alta
-
-### 2.1 Breakpoint & Watchpoint
-- [ ] **Breakpoint condizionati**: supporto per condizioni su registri/memoria (es. `break $C000 if A == #$FF`).
-- [ ] **Breakpoint su accesso I/O**: intercettare letture/scritture su porte CIA/VIC/SID.
-- [ ] **Watchpoint con maschera**: monitorare range di memoria (es. tutta la pagina zero `$00-$FF`).
-- [ ] **Hit count**: eseguire breakpoint solo dopo N occorrenze.
-
-### 2.2 Analisi & Introspezione
-- [ ] **Disassembly integrato**: parser del disassembly restituito da VICE in struttura dati navigabile (istruzione, operandi, indirizzo, bytes).
-- [ ] **Stack trace 6502**: ricostruzione del call stack analizzando la pagina stack e i puntatori RTS.
-- [ ] **Memory map viewer**: API per ottenere snapshot della memoria con annotazioni (codice, dati, stack, screen RAM).
-- [ ] **Profiling base**: conteggio cicli per funzione/segmento di codice.
+| # | Task | Stato | Note |
+|---|------|-------|------|
+| 2.2.1 | Breakpoint condizionati | 🔲 | `break $C000 if A == #$FF` |
+| 2.2.2 | Breakpoint accesso I/O | 🔲 | Intercettazione CIA/VIC/SID |
+| 2.2.3 | Watchpoint con maschera range | 🔲 | `watch $C000-$CFFF` |
+| 2.2.4 | Hit count | 🔲 | Attivazione dopo N occorrenze |
 
 ### 2.3 CLI Interattiva
-- [ ] **Shell REPL**: comando `c64debugger` che avvia una shell interattiva con comandi stile GDB (`break`, `step`, `continue`, `info registers`, `x/16 $C000`).
-- [ ] **Auto-completamento**: supporto tab-completion per indirizzi, simboli e comandi.
-- [ ] **History persistente**: salvataggio cronologia comandi in `~/.c64debugger_history`.
+
+| # | Task | Stato | Note |
+|---|------|-------|------|
+| 2.3.1 | Shell REPL (`c64debugger`) | 🔲 | Comandi stile GDB |
+| 2.3.2 | Comandi base: break, step, continue, info, x | 🔲 | |
+| 2.3.3 | Auto-completamento tab | 🔲 | Indirizzi, comandi, simboli |
+| 2.3.4 | History persistente | 🔲 | `~/.c64debugger_history` |
 
 ---
 
-## Fase 3 — Integrazione Intelligenza Artificiale (v0.4.0)
-**Target**: 4-5 settimane | **Priorità**: Media-Alta
+## Fase 3 — Intelligenza Artificiale (v0.4.0) 📋 PIANIFICATA
+
+**Target**: 8 settimane | **Priorità**: Alta | **ETA**: ~15 settimane totali
 
 ### 3.1 Agent LLM — Base
-- [ ] **Prompt engineering strutturato**: template di system prompt specializzati per analisi 6502/C64.
-- [ ] **Context window ottimizzata**: invio al LLM solo del contesto rilevante (registri, stack, istruzioni circostanti) per risparmiare token.
-- [ ] **Supporto multi-provider**: OpenAI GPT-4, Anthropic Claude, Ollama (locale), Google Gemini.
-- [ ] **Configurazione provider**: API key, modello, temperature, max_tokens via `config.yaml`.
+
+| # | Task | Stato | Note |
+|---|------|-------|------|
+| 3.1.1 | Provider Manager (OpenAI, Anthropic, Ollama, Gemini) | 🔲 | Astrazione `LLMProvider` |
+| 3.1.2 | Configurazione provider in `config.yaml` | 🔲 | api_key, model, temperature, max_tokens |
+| 3.1.3 | Prompt engineering 6502/C64 | 🔲 | System prompt specializzati |
+| 3.1.4 | Context Window Optimizer | 🔲 | Invio solo contesto rilevante |
 
 ### 3.2 Agent LLM — Analisi Avanzata
-- [ ] **Diagnosi crash**: analisi automatica di crash dump con suggerimento di cause (stack corruption, race condition IRQ, buffer overflow).
-- [ ] **Analisi cicli infiniti**: rilevamento pattern ricorsivi o loop senza uscita con spiegazione in linguaggio naturale.
-- [ ] **Suggerimento fix**: proposta di patch 6502 per correggere bug rilevati.
-- [ ] **Confronto snapshot**: diff tra due stati di memoria/registri con analisi LLM delle differenze.
+
+| # | Task | Stato | Note |
+|---|------|-------|------|
+| 3.2.1 | Diagnosi crash automatica | 🔲 | Stack corruption, race IRQ, buffer overflow |
+| 3.2.2 | Analisi cicli infiniti | 🔲 | Pattern ricorsivi/loop senza uscita |
+| 3.2.3 | Suggerimento fix 6502 | 🔲 | Patch generative con metadati |
+| 3.2.4 | Confronto snapshot diff | 🔲 | Analisi LLM differenze stati |
 
 ### 3.3 Auto-riparazione (Experimental)
-- [ ] **Modifica memoria guidata**: LLM suggerisce valori da scrivere in RAM per fixare stato corrotto.
-- [ ] **Patch assembly generativa**: generazione di snippet 6502 per bypassare bug o aggiungere logging.
-- [ ] **Valutazione sicurezza**: verifica che le patch proposte non corrompano aree critiche (stack, vettori IRQ/NMI).
+
+| # | Task | Stato | Note |
+|---|------|-------|------|
+| 3.3.1 | Modifica memoria guidata | 🔲 | LLM suggerisce valori RAM |
+| 3.3.2 | Patch assembly generativa | 🔲 | Snippet 6502 per bypass bug |
+| 3.3.3 | Valutazione sicurezza patch | 🔲 | Verifica aree critiche protette |
 
 ---
 
-## Fase 4 — Interfaccia Utente & Tooling (v0.5.0)
-**Target**: 4-6 settimane | **Priorità**: Media
+## Fase 4 — Interfaccia Utente & Tooling (v0.5.0) 📋 PIANIFICATA
+
+**Target**: 8 settimane | **Priorità**: Media | **ETA**: ~23 settimane totali
 
 ### 4.1 TUI (Text User Interface)
-- [ ] **Vista multi-pannello** con `textual` o `rich`: registri, disassembly, memoria, stack in layout stile GDB-TUI.
-- [ ] **Highlight sintassi**: colorazione istruzioni 6502, valori immediati, indirizzi.
-- [ ] **Navigazione memoria**: scroll interattivo nella memoria C64 con annotazioni.
-- [ ] **Breakpoint visivi**: indicatori grafici per breakpoint attivi/disattivati nel disassembly.
+
+| # | Task | Stato | Note |
+|---|------|-------|------|
+| 4.1.1 | Layout multi-pannello (textual) | 🔲 | Registri, disassembly, memoria, stack |
+| 4.1.2 | Highlight sintassi 6502 | 🔲 | Opcode, immediati, indirizzi, label |
+| 4.1.3 | Navigazione memoria interattiva | 🔲 | Scroll con annotazioni |
+| 4.1.4 | Breakpoint visivi | 🔲 | Indicatori ●/○ nel disassembly |
 
 ### 4.2 Supporto Simboli & Debug Info
-- [ ] **Caricamento label**: parser per file `.lbl` (ACME, KickAssembler, TMPx) per mappare indirizzi a nomi simbolici.
-- [ ] **Source-level debugging**: se disponibile, mappatura tra codice sorgente assembly e indirizzi macchina.
-- [ ] **Watch su simboli**: breakpoint/watchpoint riferiti a label invece che a indirizzi assoluti.
+
+| # | Task | Stato | Note |
+|---|------|-------|------|
+| 4.2.1 | Parser file `.lbl` (ACME, KickAssembler, TMPx) | 🔲 | Mappa indirizzi → nomi |
+| 4.2.2 | Source-level debugging | 🔲 | Mappatura sorgente ↔ macchina |
+| 4.2.3 | Watch su simboli | 🔲 | `watch myLabel` |
 
 ### 4.3 Snapshot & Sessioni
-- [ ] **Salvataggio sessione**: esportazione di tutti i breakpoint, watchpoint, e configurazioni in file `.c64dbg`.
-- [ ] **Caricamento sessione**: ripristino automatico di una sessione di debug precedente.
-- [ ] **Snapshot memoria**: salvataggio/ripristino di snapshot completi della RAM C64.
+
+| # | Task | Stato | Note |
+|---|------|-------|------|
+| 4.3.1 | Salvataggio sessione `.c64dbg` | 🔲 | Breakpoint, watch, config, layout |
+| 4.3.2 | Caricamento sessione | 🔲 | Ripristino automatico |
+| 4.3.3 | Snapshot RAM completo | 🔲 | Save/load stato memoria |
 
 ---
 
-## Fase 5 — Ecosistema & Estensibilità (v0.6.0)
-**Target**: 5-6 settimane | **Priorità**: Media
+## Fase 5 — Ecosistema & Estensibilità (v0.6.0) 📋 PIANIFICATA
+
+**Target**: 8 settimane | **Priorità**: Media | **ETA**: ~31 settimana totali
 
 ### 5.1 Plugin System
-- [ ] **Architettura a plugin**: API per estensioni Python che possono registrare comandi, viste, e analizzatori.
-- [ ] **Hook lifecycle**: punti di estensione (pre/post breakpoint, pre/post step, on crash).
-- [ ] **Repository plugin**: documentazione per sviluppare e pubblicare plugin di terze parti.
+
+| # | Task | Stato | Note |
+|---|------|-------|------|
+| 5.1.1 | Architettura a plugin | 🔲 | API registrazione comandi/viste/analizzatori |
+| 5.1.2 | Hook lifecycle | 🔲 | pre/post breakpoint, step, crash |
+| 5.1.3 | Repository plugin | 🔲 | Docs sviluppo terze parti |
 
 ### 5.2 Integrazione IDE
-- [ ] **VS Code Extension**: estensione che utilizza C64-Debugger come backend per debugging dentro VS Code.
-- [ ] **Protocollo DAP (Debug Adapter Protocol)**: implementazione parziale di DAP per compatibilità con più IDE.
+
+| # | Task | Stato | Note |
+|---|------|-------|------|
+| 5.2.1 | VS Code Extension | 🔲 | Backend per debugging in VS Code |
+| 5.2.2 | Protocollo DAP | 🔲 | Implementazione parziale Debug Adapter Protocol |
 
 ### 5.3 Batch & Scripting
-- [ ] **Scripting Python**: esecuzione di script Python personalizzati che interagiscono con il debugger.
-- [ ] **Batch mode**: esecuzione non interattiva di script di debug (utile per CI/test automatici).
+
+| # | Task | Stato | Note |
+|---|------|-------|------|
+| 5.3.1 | Scripting Python | 🔲 | Decoratore `@c64_script` |
+| 5.3.2 | Batch mode | 🔲 | `c64debugger --batch script.py` |
 
 ---
 
-## Fase 6 — Performance & Affidabilità (v1.0.0)
-**Target**: 6-8 settimane | **Priorità**: Bassa-Media
+## Fase 6 — Performance & Affidabilità (v1.0.0) 📋 PIANIFICATA
+
+**Target**: 8 settimane | **Priorità**: Media | **ETA**: ~39 settimane totali
 
 ### 6.1 Ottimizzazioni
-- [ ] **Connessione persistente**: mantenere socket aperto invece di riconnettersi ad ogni comando.
-- [ ] **Caching memoria**: cache lato Python delle aree di memoria lette frequentemente con invalidazione su scrittura.
-- [ ] **Async I/O**: riscrittura core con `asyncio` per supportare operazioni concorrenti (es. TUI + LLM + VICE).
+
+| # | Task | Stato | Note |
+|---|------|-------|------|
+| 6.1.1 | Async I/O rewrite | 🔲 | `asyncio` per concorrenza TUI+LLM+VICE |
+| 6.1.2 | Connessione persistente | 🔲 | Socket aperto con reconnect |
+| 6.1.3 | Caching memoria | 🔲 | Cache lato Python con invalidazione |
 
 ### 6.2 Compatibilità
-- [ ] **Supporto multi-versione VICE**: test con VICE 3.6, 3.7, 3.8 e gestione differenze protocollo.
-- [ ] **Supporto altri emulatori**: esplorazione integrazione con CCS64, Hoxs64 (se protocollo disponibile).
-- [ ] **Cross-platform**: test e fix per Windows (WSL/native), macOS, Linux.
+
+| # | Task | Stato | Note |
+|---|------|-------|------|
+| 6.2.1 | Multi-versione VICE | 🔲 | Test 3.6/3.7/3.8, gestione differenze |
+| 6.2.2 | Cross-platform | 🔲 | Windows (WSL/native), macOS, Linux |
+| 6.2.3 | Supporto altri emulatori | 🔲 | Esplorazione CCS64, Hoxs64 |
 
 ### 6.3 Release & Distribuzione
-- [ ] **Package PyPI**: pubblicazione su PyPI per `pip install c64-debugger`.
-- [ ] **Binary standalone**: build con PyInstaller/pex per distribuzione senza Python.
-- [ ] **Changelog automatizzato**: generazione da Conventional Commits.
-- [ ] **Documentazione su GitHub Pages**: hosting della documentazione completa.
+
+| # | Task | Stato | Note |
+|---|------|-------|------|
+| 6.3.1 | Package PyPI | 🔲 | `pip install c64-debugger` |
+| 6.3.2 | Binary standalone | 🔲 | PyInstaller/pex |
+| 6.3.3 | Changelog automatizzato | 🔲 | Da Conventional Commits |
+| 6.3.4 | Documentazione GitHub Pages | 🔲 | Hosting completo |
 
 ---
 
-## Piano di Implementazione — Timeline Riassuntiva
+## Miglioramenti Aggiuntivi (Backlog)
 
+| # | Feature | Priorità | Fase Target |
+|---|---------|----------|-------------|
+| A1 | Parser formati C64 (PRG/D64/CRT) | Media | v0.5.x |
+| A2 | BASIC V2 Decoder | Bassa | v0.6.x |
+| A3 | Reverse Debugging (step backward) | Media | v0.7.0 |
+| A4 | VIC-II/SID/CIA State Inspection | Media | v0.5.x |
+| A5 | Memory Heatmap & Access Patterns | Bassa | v0.6.x |
+| A6 | Collaborative Debugging (session sharing) | Bassa | v0.7.0 |
+| A7 | Security Hardening (input validation, sandbox) | Alta | v0.3.x |
+
+---
+
+## Timeline Riassuntiva Aggiornata
 ```text
-Settimane:  1  2  3  4  5  6  7  8  9  10 11 12 13 14 15 16 17 18 19 20 21 22 23 24
-           |----Fase 1----|-----Fase 2-----|------Fase 3------|----Fase 4----|
-           Stabilizzazione   Core Avanzato      AI Agent        UI & Tooling
-                                                          |----Fase 5----|
-                                                            Ecosistema
-                                                                    |---Fase 6---|
-                                                                      v1.0.0
+Settimane:  1  2  3  4  5  6  7  8  9  10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40
+|----Fase 1----|------Fase 2-------|--------Fase 3--------|--------Fase 4--------|--------Fase 5--------|--------Fase 6--------|
+Stabilizzazione     Core Avanzato        AI Agent           UI & Tooling           Ecosistema            Performance/Release
+✅ COMPLETATA      🚧 IN SVILUPPO      📋 PIANIFICATA      📋 PIANIFICATA         📋 PIANIFICATA         📋 PIANIFICATA
 ```
 
-| Release | Milestone | ETA |
-| :--- | :--- | :--- |
-| **v0.2.0** | Stabilizzazione, test, logging, config | ~3 settimane (COMPLETATA) |
+| Release | Milestone | ETA Cumulativa |
+|---------|-----------|----------------|
+| **v0.2.0** | Stabilizzazione, test, logging, config | ✅ Completata |
 | **v0.3.0** | Breakpoint avanzati, disassembly, CLI REPL | ~7 settimane |
-| **v0.4.0** | Integrazione LLM, auto-analisi, auto-fix | ~12 settimane |
-| **v0.5.0** | TUI, simboli, snapshot sessioni | ~18 settimane |
-| **v0.6.0** | Plugin, VS Code, DAP, scripting | ~24 settimane |
-| **v1.0.0** | Performance, PyPI, documentazione | ~32 settimane |
+| **v0.4.0** | Integrazione LLM, auto-analisi, auto-fix | ~15 settimane |
+| **v0.5.0** | TUI, simboli, snapshot sessioni | ~23 settimane |
+| **v0.6.0** | Plugin, VS Code, DAP, scripting | ~31 settimane |
+| **v1.0.0** | Performance, PyPI, documentazione | ~39 settimane |
 
 ---
 
 ## Metriche di Successo
-- [x] Copertura test ≥ 85%
-- [x] Zero crash su test suite CI
-- [ ] Tempo di risposta comandi VICE < 50ms (in locale)
-- [ ] Supporto almeno 2 provider LLM
-- [ ] Documentazione API completa
-- [x] ≥ 10 esempi d'uso funzionanti (nella suite e negli esempi)
+
+- Copertura test ≥ 85% (target v1.0.0: ≥90%)
+- Zero crash su test suite CI
+- Tempo di risposta comandi VICE < 50ms (in locale)
+- Supporto almeno 3 provider LLM (OpenAI, Anthropic, Ollama)
+- Documentazione API completa
+- ≥ 15 esempi d'uso funzionanti
+- Installazione via `pip install c64-debugger` (v1.0.0)
