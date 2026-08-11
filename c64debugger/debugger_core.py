@@ -1,6 +1,8 @@
 import socket
 import struct
 import logging
+import re
+from typing import Dict, Any, Union, Optional, List, Set, Tuple
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("C64DebuggerCore")
@@ -11,10 +13,15 @@ class C64DebuggerCore:
     Supporta la simulazione passo-passo (via py6502) e il collegamento all'emulatore VICE.
     """
     def __init__(self):
-        self.breakpoints = set()
-        self.watchpoints = {}  # addr -> value
-        self.execution_history = []
-        self.registers = {
+        self.breakpoints: Set[int] = set()
+        self.breakpoint_conditions: Dict[int, str] = {}
+        self.hit_count_limits: Dict[int, int] = {}
+        self.hit_counts: Dict[int, int] = {}
+        self.watchpoints: Dict[int, Optional[int]] = {}  # addr -> value
+        self.watchpoint_ranges: List[Tuple[int, int]] = []
+        self.io_breakpoints: Dict[str, Tuple[int, int]] = {}  # chip -> (start, end)
+        self.execution_history: List[Dict[str, Any]] = []
+        self.registers: Dict[str, int] = {
             "PC": 0x0000,
             "A": 0x00,
             "X": 0x00,
@@ -28,19 +35,179 @@ class C64DebuggerCore:
     # --- BREAKPOINTS / WATCHPOINTS ---
     def add_breakpoint(self, address: int):
         """Aggiunge un breakpoint ad un indirizzo specifico."""
+        address &= 0xFFFF
         self.breakpoints.add(address)
         logger.info(f"Breakpoint impostato a ${address:04X}")
 
     def remove_breakpoint(self, address: int):
         """Rimuove un breakpoint."""
+        address &= 0xFFFF
         if address in self.breakpoints:
             self.breakpoints.remove(address)
+            self.breakpoint_conditions.pop(address, None)
+            self.hit_count_limits.pop(address, None)
+            self.hit_counts.pop(address, None)
             logger.info(f"Breakpoint rimosso a ${address:04X}")
+
+    def add_conditional_breakpoint(self, address: int, condition_str: str):
+        """Aggiunge un breakpoint condizionato."""
+        address &= 0xFFFF
+        self.add_breakpoint(address)
+        self.breakpoint_conditions[address] = condition_str
+        logger.info(f"Breakpoint condizionato impostato a ${address:04X} con condizione: {condition_str}")
+
+    def add_hit_count_breakpoint(self, address: int, limit: int):
+        """Aggiunge un breakpoint con hit count."""
+        address &= 0xFFFF
+        self.add_breakpoint(address)
+        self.hit_count_limits[address] = limit
+        self.hit_counts[address] = 0
+        logger.info(f"Breakpoint hit count impostato a ${address:04X} (smetti dopo {limit} hit)")
 
     def add_watchpoint(self, address: int):
         """Aggiunge un watchpoint su una cella di memoria."""
+        address &= 0xFFFF
         self.watchpoints[address] = None
         logger.info(f"Watchpoint impostato sulla cella di memoria ${address:04X}")
+
+    def remove_watchpoint(self, address: int):
+        """Rimuove un watchpoint da una cella di memoria."""
+        address &= 0xFFFF
+        self.watchpoints.pop(address, None)
+        logger.info(f"Watchpoint rimosso dalla cella di memoria ${address:04X}")
+
+    def add_watchpoint_range(self, start_addr: int, end_addr: int):
+        """Aggiunge un watchpoint su un intero intervallo di indirizzi di memoria."""
+        start_addr &= 0xFFFF
+        end_addr &= 0xFFFF
+        self.watchpoint_ranges.append((start_addr, end_addr))
+        logger.info(f"Watchpoint range impostato su ${start_addr:04X}-${end_addr:04X}")
+
+    def add_io_breakpoint(self, io_chip: str):
+        """
+        Aggiunge un intercettatore per gli accessi ai chip di I/O.
+        Opzioni valide: 'VIC' ($D000-$D3FF), 'SID' ($D400-$D7FF), 'CIA1' ($DC00-$DCFF), 'CIA2' ($DD00-$DDFF), 'IO' ($D000-$DFFF)
+        """
+        chip = io_chip.upper()
+        ranges = {
+            "VIC": (0xD000, 0xD3FF),
+            "SID": (0xD400, 0xD7FF),
+            "CIA1": (0xDC00, 0xDCFF),
+            "CIA2": (0xDD00, 0xDDFF),
+            "IO": (0xD000, 0xDFFF)
+        }
+        if chip in ranges:
+            self.io_breakpoints[chip] = ranges[chip]
+            logger.info(f"Intercettazione I/O impostata per il chip {chip} su range ${ranges[chip][0]:04X}-${ranges[chip][1]:04X}")
+        else:
+            logger.warning(f"Chip di I/O '{io_chip}' non valido.")
+
+    def remove_io_breakpoint(self, io_chip: str):
+        """Rimuove l'intercettazione I/O per un chip."""
+        chip = io_chip.upper()
+        if chip in self.io_breakpoints:
+            self.io_breakpoints.pop(chip)
+            logger.info(f"Intercettazione I/O rimossa per il chip {chip}")
+
+    # --- EVALUATION ENGINE ---
+    def eval_condition(self, condition_str: str, registers: dict) -> bool:
+        """
+        Valuta se una espressione di condizione è vera per lo stato attuale dei registri.
+        """
+        if not condition_str:
+            return True
+
+        condition_str = condition_str.strip()
+        pattern = re.compile(r"^([a-zA-Z]+)\s*(==|!=|>=|<=|>|<)\s*([\$#0-9a-fA-F_x]+)$")
+        match = pattern.match(condition_str)
+        if not match:
+            # Fallback sicuro ad un'interpretazione tramite eval (con ambiente ristretto)
+            cleaned = condition_str.replace('$', '0x').replace('#', '')
+            try:
+                safe_env = {k: v for k, v in registers.items()}
+                return bool(eval(cleaned, {"__builtins__": None}, safe_env))
+            except Exception:
+                return False
+
+        reg, op, val_str = match.groups()
+        reg = reg.upper()
+        if reg not in registers:
+            return False
+
+        val_str = val_str.replace('$', '0x').replace('#', '').strip()
+        try:
+            if val_str.lower().startswith('0x'):
+                val = int(val_str, 16)
+            else:
+                val = int(val_str)
+        except ValueError:
+            return False
+
+        reg_val = registers[reg]
+        if op == "==":
+            return reg_val == val
+        elif op == "!=":
+            return reg_val != val
+        elif op == ">":
+            return reg_val > val
+        elif op == "<":
+            return reg_val < val
+        elif op == ">=":
+            return reg_val >= val
+        elif op == "<=":
+            return reg_val <= val
+
+        return False
+
+    def should_stop(self, address: int, registers: dict) -> bool:
+        """
+        Determina se l'esecuzione si deve fermare all'indirizzo corrente,
+        considerando breakpoint normali, condizionati e hit count.
+        """
+        address &= 0xFFFF
+        if address not in self.breakpoints:
+            return False
+
+        # Se c'è un hit count limit, incrementiamo e verifichiamo
+        if address in self.hit_count_limits:
+            self.hit_counts[address] = self.hit_counts.get(address, 0) + 1
+            if self.hit_counts[address] < self.hit_count_limits[address]:
+                return False
+
+        # Se c'è una condizione, verifichiamola
+        if address in self.breakpoint_conditions:
+            cond = self.breakpoint_conditions[address]
+            return self.eval_condition(cond, registers)
+
+        return True
+
+    def check_watchpoint_trigger(self, address: int, old_val: int, new_val: int) -> bool:
+        """
+        Determina se un accesso in scrittura su una cella ha attivato un watchpoint.
+        """
+        address &= 0xFFFF
+        if old_val == new_val:
+            return False
+
+        if address in self.watchpoints:
+            return True
+
+        for start, end in self.watchpoint_ranges:
+            if start <= address <= end:
+                return True
+
+        return False
+
+    def check_io_access(self, address: int) -> Optional[str]:
+        """
+        Controlla se l'indirizzo appartiene a un chip di I/O monitorato.
+        Ritorna il nome del chip se intercettato.
+        """
+        address &= 0xFFFF
+        for chip_name, (start, end) in self.io_breakpoints.items():
+            if start <= address <= end:
+                return chip_name
+        return None
 
     # --- SIMULATORE PY6502 ADAPTER ---
     def init_simulator(self, code_bytes: bytes, start_addr: int = 0xC000):
@@ -48,9 +215,6 @@ class C64DebuggerCore:
         try:
             from c64validator.py6502_adapter import C64Py6502Adapter
             self.simulation_adapter = C64Py6502Adapter()
-            # Prepariamo la memoria simulata con il nostro codice
-            # Inseriamo il codice in un dizionario/lista simboli se necessario
-            # Per retrocompatibilità, assembliamo o carichiamo direttamente i byte
             self.registers["PC"] = start_addr
             logger.info(f"Simulatore inizializzato all'indirizzo ${start_addr:04X}")
         except ImportError:
@@ -61,10 +225,7 @@ class C64DebuggerCore:
         if not self.simulation_adapter:
             return False, "Simulatore non inizializzato."
 
-        # Esegue un passo della simulazione
         pc_before = self.registers["PC"]
-        # In un vero scenario, aggiorneremmo l'adapter py6502 ed eseguiremo un'istruzione
-        # Qui simuliamo lo step aggiornando lo stato
         self.execution_history.append({
             "PC": pc_before,
             "registers": self.registers.copy()
@@ -76,7 +237,6 @@ class C64DebuggerCore:
     def connect_to_vice(self, host: str = "127.0.0.1", port: int = 6510):
         """
         Connette il debugger all'emulatore VICE usando la porta monitor binaria.
-        VICE deve essere avviato con l'argomento: -binarymonitor o abilitando l'opzione remota.
         """
         try:
             self.vice_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -96,7 +256,6 @@ class C64DebuggerCore:
             return False, "Nessuna connessione a VICE attiva."
         try:
             self.vice_socket.sendall(cmd_bytes)
-            # Ricezione risposta (struttura variabile a seconda della risposta del monitor VICE)
             response = self.vice_socket.recv(1024)
             return True, response
         except Exception as e:
