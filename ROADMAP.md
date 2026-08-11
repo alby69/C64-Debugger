@@ -17,7 +17,7 @@ C64-Debugger si propone di diventare il debugger Python più avanzato per Commod
 
 ---
 
-## Stato Attuale (v0.2.0) ✅ COMPLETATA
+## Stato Attuale (v0.3.0) ✅ COMPLETATA
 
 | Componente | Stato | Note |
 |------------|-------|------|
@@ -29,43 +29,46 @@ C64-Debugger si propone di diventare il debugger Python più avanzato per Commod
 | Configuration | ✅ Completata | Supporto `config.yaml` / `config.json` |
 | Packaging | ✅ Completato | `setup.py` per installazione editabile |
 | Documentazione | ✅ Completata | Contributing guide, esempi d'uso, roadmap |
+| Advanced Breakpoints | ✅ Implementato | Condizionali, I/O, hit counts e range watchpoint |
+| Memory Map & Profiler | ✅ Implementato | Annotazioni di memoria avanzate e tracciamento prestazioni |
+| CLI REPL | ✅ Implementato | Shell interattiva completa stile GDB |
 
 ---
 
-## Fase 2 — Core Avanzato (v0.3.0) 🚧 IN SVILUPPO
+## Fase 2 — Core Avanzato (v0.3.0) ✅ COMPLETATA
 
-**Target**: 6 settimane | **Priorità**: Alta | **ETA**: ~7 settimane totali
+**Target**: 6 settimane | **Priorità**: Alta | **ETA**: Completata
 
 ### 2.1 Disassembly & Introspezione
 
 | # | Task | Stato | Note |
 |---|------|-------|------|
-| 2.1.1 | Parser disassembly VICE in oggetti `Instruction` | 🔲 | Addr, bytes, mnemonic, operand, addressing mode |
-| 2.1.2 | Stack trace 6502 (analisi pagina $0100-$01FF) | 🔲 | Ricostruzione call stack via RTS tracking |
-| 2.1.3 | Memory map viewer con annotazioni | 🔲 | CODE/DATA/STACK/SCREEN/VIC/SID/CIA |
-| 2.1.4 | Profiler base (conteggio cicli per funzione) | 🔲 | Basato su breakpoint trace |
+| 2.1.1 | Parser disassembly VICE in oggetti `Instruction` | ✅ | Addr, bytes, mnemonic, operand, addressing mode |
+| 2.1.2 | Stack trace 6502 (analisi pagina $0100-$01FF) | ✅ | Ricostruzione call stack via RTS tracking |
+| 2.1.3 | Memory map viewer con annotazioni | ✅ | CODE/DATA/STACK/SCREEN/VIC/SID/CIA |
+| 2.1.4 | Profiler base (conteggio cicli per funzione) | ✅ | Basato su breakpoint trace |
 
 ### 2.2 Breakpoint & Watchpoint Avanzati
 
 | # | Task | Stato | Note |
 |---|------|-------|------|
-| 2.2.1 | Breakpoint condizionati | 🔲 | `break $C000 if A == #$FF` |
-| 2.2.2 | Breakpoint accesso I/O | 🔲 | Intercettazione CIA/VIC/SID |
-| 2.2.3 | Watchpoint con maschera range | 🔲 | `watch $C000-$CFFF` |
-| 2.2.4 | Hit count | 🔲 | Attivazione dopo N occorrenze |
+| 2.2.1 | Breakpoint condizionati | ✅ | `break $C000 if A == #$FF` |
+| 2.2.2 | Breakpoint accesso I/O | ✅ | Intercettazione CIA/VIC/SID |
+| 2.2.3 | Watchpoint con maschera range | ✅ | `watch $C000-$CFFF` |
+| 2.2.4 | Hit count | ✅ | Attivazione dopo N occorrenze |
 
 ### 2.3 CLI Interattiva
 
 | # | Task | Stato | Note |
 |---|------|-------|------|
-| 2.3.1 | Shell REPL (`c64debugger`) | 🔲 | Comandi stile GDB |
-| 2.3.2 | Comandi base: break, step, continue, info, x | 🔲 | |
-| 2.3.3 | Auto-completamento tab | 🔲 | Indirizzi, comandi, simboli |
-| 2.3.4 | History persistente | 🔲 | `~/.c64debugger_history` |
+| 2.3.1 | Shell REPL (`c64debugger`) | ✅ | Comandi stile GDB |
+| 2.3.2 | Comandi base: break, step, continue, info, x | ✅ | |
+| 2.3.3 | Auto-completamento tab | ✅ | Indirizzi, comandi, simboli |
+| 2.3.4 | History persistente | ✅ | `~/.c64debugger_history` |
 
 ---
 
-## Fase 3 — Intelligenza Artificiale (v0.4.0) 📋 PIANIFICATA
+## Fase 3 — Intelligenza Artificiale (v0.4.0) 🚧 IN SVILUPPO
 
 **Target**: 8 settimane | **Priorità**: Alta | **ETA**: ~15 settimane totali
 
@@ -206,13 +209,13 @@ C64-Debugger si propone di diventare il debugger Python più avanzato per Commod
 Settimane:  1  2  3  4  5  6  7  8  9  10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40
 |----Fase 1----|------Fase 2-------|--------Fase 3--------|--------Fase 4--------|--------Fase 5--------|--------Fase 6--------|
 Stabilizzazione     Core Avanzato        AI Agent           UI & Tooling           Ecosistema            Performance/Release
-✅ COMPLETATA      🚧 IN SVILUPPO      📋 PIANIFICATA      📋 PIANIFICATA         📋 PIANIFICATA         📋 PIANIFICATA
+✅ COMPLETATA      ✅ COMPLETATA       🚧 IN SVILUPPO      📋 PIANIFICATA         📋 PIANIFICATA         📋 PIANIFICATA
 ```
 
 | Release | Milestone | ETA Cumulativa |
 |---------|-----------|----------------|
 | **v0.2.0** | Stabilizzazione, test, logging, config | ✅ Completata |
-| **v0.3.0** | Breakpoint avanzati, disassembly, CLI REPL | ~7 settimane |
+| **v0.3.0** | Breakpoint avanzati, disassembly, CLI REPL | ✅ Completata |
 | **v0.4.0** | Integrazione LLM, auto-analisi, auto-fix | ~15 settimane |
 | **v0.5.0** | TUI, simboli, snapshot sessioni | ~23 settimane |
 | **v0.6.0** | Plugin, VS Code, DAP, scripting | ~31 settimane |
