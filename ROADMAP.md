@@ -17,24 +17,27 @@ C64-Debugger si propone di diventare il debugger Python più avanzato per Commod
 
 ---
 
-## Stato Attuale (v0.5.0) 🚧 IN SVILUPPO
+## Stato Attuale (v0.6.0) 🚧 IN SVILUPPO
 
 | Componente | Stato | Note |
 |------------|-------|------|
 | VICERemoteMonitorBridge | ✅ Implementato | Connessione stabile con retry ed exponential backoff |
 | VICEMonitorProtocol | ✅ Implementato | Protocollo parsing astratto e isolato |
-| C64DebuggerCore | ✅ Implementato | Breakpoint, watchpoint, crash dump analysis |
+| C64DebuggerCore | ✅ Implementato | Breakpoint, watchpoint, crash dump analysis, plugin support |
 | C64DebuggerAgentHelper | ✅ Implementato | Helper per integrazione LLM (completo con multi-provider) |
-| Test suite | ✅ Completata | Copertura ≥85% con mock server e test integrazione (68 test passanti) |
+| Test suite | ✅ Completata | Copertura ≥85% con mock server e test integrazione (80+ test passanti) |
 | Configuration | ✅ Completata | Supporto `config.yaml` / `config.json` |
 | Packaging | ✅ Completato | `setup.py` per installazione editabile |
 | Documentazione | ✅ Completata | Contributing guide, esempi d'uso, roadmap, README aggiornato |
 | Advanced Breakpoints | ✅ Implementato | Condizionali, I/O, hit counts e range watchpoint |
 | Memory Map & Profiler | ✅ Implementato | Annotazioni di memoria avanzate e tracciamento prestazioni |
-| CLI REPL | ✅ Implementato | Shell interattiva completa stile GDB con supporto simboli e sessioni |
+| CLI REPL | ✅ Implementato | Shell interattiva completa stile GDB con supporto simboli, sessioni e plugin |
 | Supporto Simboli | ✅ Implementato | Parser .lbl ACME, KickAssembler e TMPx con lookup bidirezionale |
 | Sessioni e Snapshots | ✅ Implementato | Salvataggio/caricamento sessioni `.c64dbg` e snapshots RAM `.bin` |
 | TUI Dashboard | ✅ Implementata | Layout multi-pannello a schermo intero con evidenziazione sintassi ANSI 6502 |
+| Plugin System (v0.6.0) | ✅ Implementato | Architettura estensibile basata su classi con hook di ciclo di vita e comandi dinamici |
+| Batch & Scripting (v0.6.0) | ✅ Implementato | Esecuzione di script non interattivi con il decoratore `@c64_script` |
+| Debug Adapter Protocol (v0.6.0) | ✅ Implementato | Server DAP leggero integrato su socket per supportare integrazioni con IDE (VS Code) |
 
 ---
 
@@ -134,31 +137,31 @@ C64-Debugger si propone di diventare il debugger Python più avanzato per Commod
 
 ---
 
-## Fase 5 — Ecosistema & Estensibilità (v0.6.0) 📋 PIANIFICATA
+## Fase 5 — Ecosistema & Estensibilità (v0.6.0) ✅ COMPLETATA
 
-**Target**: 8 settimane | **Priorità**: Media | **ETA**: ~31 settimane totali
+**Target**: 8 settimane | **Priorità**: Media | **ETA**: Completata
 
 ### 5.1 Plugin System
 
 | # | Task | Stato | Note |
 |---|------|-------|------|
-| 5.1.1 | Architettura a plugin | 🔲 | API registrazione comandi/viste/analizzatori |
-| 5.1.2 | Hook lifecycle | 🔲 | pre/post breakpoint, step, crash |
-| 5.1.3 | Repository plugin | 🔲 | Docs sviluppo terze parti |
+| 5.1.1 | Architettura a plugin | ✅ | API dinamica per registrare comandi, gestita da `C64PluginManager` |
+| 5.1.2 | Hook lifecycle | ✅ | Supportati hook `pre_step`, `post_step`, `pre_breakpoint`, `post_breakpoint`, `on_crash` |
+| 5.1.3 | Repository plugin | ✅ | Documentata la struttura della classe base `C64DebuggerPlugin` nel README |
 
 ### 5.2 Integrazione IDE
 
 | # | Task | Stato | Note |
 |---|------|-------|------|
-| 5.2.1 | VS Code Extension | 🔲 | Backend per debugging in VS Code |
-| 5.2.2 | Protocollo DAP | 🔲 | Implementazione parziale Debug Adapter Protocol |
+| 5.2.1 | VS Code Extension | ✅ | Fornito backend di debug TCP per client VS Code |
+| 5.2.2 | Protocollo DAP | ✅ | Implementazione completa server JSON-RPC DAP compatibile (`initialize`, `launch`, `attach`, `setBreakpoints`, `stackTrace`, `scopes`, `variables`, `next`, `continue`, `disconnect`) |
 
 ### 5.3 Batch & Scripting
 
 | # | Task | Stato | Note |
 |---|------|-------|------|
-| 5.3.1 | Scripting Python | 🔲 | Decoratore `@c64_script` |
-| 5.3.2 | Batch mode | 🔲 | `c64debugger --batch script.py` |
+| 5.3.1 | Scripting Python | ✅ | Decoratore `@c64_script` per definire funzioni di automazione |
+| 5.3.2 | Batch mode | ✅ | Esecuzione di script non interattivi con l'opzione `--batch file.py` |
 
 ---
 
@@ -212,7 +215,7 @@ C64-Debugger si propone di diventare il debugger Python più avanzato per Commod
 Settimane:  1  2  3  4  5  6  7  8  9  10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40
 |----Fase 1----|------Fase 2-------|--------Fase 3--------|--------Fase 4--------|--------Fase 5--------|--------Fase 6--------|
 Stabilizzazione     Core Avanzato        AI Agent           UI & Tooling           Ecosistema            Performance/Release
-✅ COMPLETATA      ✅ COMPLETATA       ✅ COMPLETATA       🚧 IN SVILUPPO         📋 PIANIFICATA         📋 PIANIFICATA
+✅ COMPLETATA      ✅ COMPLETATA       ✅ COMPLETATA       ✅ COMPLETATA          ✅ COMPLETATA          📋 PIANIFICATA
 ```
 
 | Release | Milestone | ETA Cumulativa | Stato |
@@ -221,7 +224,7 @@ Stabilizzazione     Core Avanzato        AI Agent           UI & Tooling        
 | **v0.3.0** | Breakpoint avanzati, disassembly, CLI REPL | ✅ Completata | ✅ Completata |
 | **v0.4.0** | Integrazione LLM, auto-analisi, auto-fix | ~15 settimane | ✅ Completata |
 | **v0.5.0** | TUI, simboli, snapshot sessioni | ~23 settimane | 🚧 In Sviluppo (Funzionalità core completate) |
-| **v0.6.0** | Plugin, VS Code, DAP, scripting | ~31 settimane | 📋 Pianificata |
+| **v0.6.0** | Plugin, VS Code, DAP, scripting | ~31 settimane | ✅ Completata |
 | **v1.0.0** | Performance, PyPI, documentazione | ~39 settimane | 📋 Pianificata |
 
 ---

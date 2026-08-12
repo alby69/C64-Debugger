@@ -32,6 +32,8 @@ class C64DebuggerREPL(cmd.Cmd):
         self.profiler = C64Profiler()
         self.symbol_manager = C64SymbolManager()
         self.setup_history()
+        from c64debugger.plugin.plugin_manager import C64PluginManager
+        self.plugin_manager = C64PluginManager(core=self.core, bridge=self.bridge, repl=self)
 
     def setup_history(self) -> None:
         try:
@@ -151,10 +153,18 @@ class C64DebuggerREPL(cmd.Cmd):
     # --- COMANDO: step / s / z ---
     def do_step(self, arg: str) -> None:
         """Esegue un singolo step di istruzione."""
+        try:
+            regs_before = self.bridge.get_registers()
+        except Exception:
+            regs_before = {}
+        self.plugin_manager.trigger_hook("pre_step", regs_before)
+
         regs = self.bridge.step_instruction()
         if not regs or "PC" not in regs:
             print("Errore durante l'esecuzione dello step. VICE è connesso?")
             return
+
+        self.plugin_manager.trigger_hook("post_step", regs)
 
         pc = regs["PC"]
         # Registra nel profiler se attivo
@@ -447,6 +457,50 @@ class C64DebuggerREPL(cmd.Cmd):
 
     def complete_watch(self, text: str, line: str, begidx: int, endidx: int) -> List[str]:
         return [name for name in self.symbol_manager.all_symbols().keys() if name.startswith(text)]
+
+    # --- COMANDI PLUGINS ---
+    def do_load_plugin(self, arg: str) -> None:
+        """
+        Carica un plugin dinamico da un file Python.
+        Sintassi: load_plugin <filepath>
+        """
+        if not arg:
+            print("Errore: specifica il percorso del file del plugin.")
+            return
+        plugin = self.plugin_manager.load_plugin(arg)
+        if plugin:
+            print(f"Plugin '{plugin.name}' caricato con successo (v{getattr(plugin, 'version', '1.0.0')}).")
+        else:
+            print(f"Errore durante il caricamento del plugin da '{arg}'.")
+
+    def do_unload_plugin(self, arg: str) -> None:
+        """
+        Scollega e rimuove un plugin precedentemente caricato.
+        Sintassi: unload_plugin <nome_plugin>
+        """
+        if not arg:
+            print("Errore: specifica il nome del plugin da rimuovere.")
+            return
+        success = self.plugin_manager.unload_plugin(arg)
+        if success:
+            print(f"Plugin '{arg}' rimosso con successo.")
+        else:
+            print(f"Errore: plugin '{arg}' non trovato o non rimosso.")
+
+    def do_list_plugins(self, arg: str) -> None:
+        """
+        Elenca tutti i plugin caricati in memoria.
+        Sintassi: list_plugins
+        """
+        plugins = self.plugin_manager.list_plugins()
+        if not plugins:
+            print("Nessun plugin attualmente caricato.")
+            return
+        print("--- PLUGIN CARICATI ---")
+        for name, p in plugins.items():
+            desc = getattr(p, "description", "Nessuna descrizione")
+            ver = getattr(p, "version", "1.0.0")
+            print(f"  {name} v{ver} - {desc}")
 
     # --- USCITA ---
     def do_quit(self, arg: str) -> bool:

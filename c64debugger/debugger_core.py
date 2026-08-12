@@ -168,18 +168,41 @@ class C64DebuggerCore:
         if address not in self.breakpoints:
             return False
 
+        # Trigger pre_breakpoint hook if plugin manager exists
+        pm = getattr(self, "plugin_manager", None)
+        if pm:
+            pm.trigger_hook("pre_breakpoint", address, registers)
+
+        stop = True
         # Se c'è un hit count limit, incrementiamo e verifichiamo
         if address in self.hit_count_limits:
             self.hit_counts[address] = self.hit_counts.get(address, 0) + 1
             if self.hit_counts[address] < self.hit_count_limits[address]:
-                return False
+                stop = False
 
         # Se c'è una condizione, verifichiamola
-        if address in self.breakpoint_conditions:
+        if stop and address in self.breakpoint_conditions:
             cond = self.breakpoint_conditions[address]
-            return self.eval_condition(cond, registers)
+            stop = self.eval_condition(cond, registers)
 
-        return True
+        # Trigger post_breakpoint hook if plugin manager exists and we are stopping
+        if stop and pm:
+            pm.trigger_hook("post_breakpoint", address, registers)
+
+        return stop
+
+    def check_and_trigger_crash(self, registers: dict, history: list, stack_trace: list = None) -> Optional[dict]:
+        """
+        Checks if the current state represents a crash using C64DebuggerAgentHelper.
+        If a crash is detected, triggers the on_crash hook for loaded plugins.
+        """
+        report = C64DebuggerAgentHelper.analyze_crash_dump(registers, history, stack_trace)
+        if report and report.get("error_type") != "Unknown":
+            pm = getattr(self, "plugin_manager", None)
+            if pm:
+                pm.trigger_hook("on_crash", report)
+            return report
+        return None
 
     def check_watchpoint_trigger(self, address: int, old_val: int, new_val: int) -> bool:
         """
