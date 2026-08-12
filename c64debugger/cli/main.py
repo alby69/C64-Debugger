@@ -23,6 +23,16 @@ def main() -> None:
         type=str,
         help="Percorso di un file .PRG da caricare automaticamente all'avvio dell'emulatore"
     )
+    parser.add_argument(
+        "--batch",
+        type=str,
+        help="Percorso di un file di script Python (.py) da eseguire in modalità batch"
+    )
+    parser.add_argument(
+        "--dap-port",
+        type=int,
+        help="Porta su cui avviare il server DAP (Debug Adapter Protocol)"
+    )
 
     args = parser.parse_args()
 
@@ -37,12 +47,64 @@ def main() -> None:
             print("Errore: impossibile avviare VICE. Assicurati che 'x64sc' sia nel PATH.")
             sys.exit(1)
 
+    if args.dap_port:
+        print(f"Avvio del server DAP (Debug Adapter Protocol) sulla porta {args.dap_port}...")
+        from c64debugger.dap.dap_server import C64DAPServer
+        import time
+        dap_server = C64DAPServer(host="127.0.0.1", port=args.dap_port, core=repl.core, bridge=repl.bridge)
+        dap_server.start()
+        try:
+            while True:
+                time.sleep(1)
+        except KeyboardInterrupt:
+            print("\nArresto del server DAP...")
+            dap_server.stop()
+            sys.exit(0)
+
     print(f"Tentativo di connessione a VICE su {args.vice_host}:{args.vice_port}...")
     success, msg = repl.bridge.connect()
     if not success:
         print(f"Connessione fallita: {msg}")
         print("Assicurati che VICE sia in esecuzione con il monitor remoto abilitato (-monitorport o -binarymonitor).")
         sys.exit(1)
+
+    if args.batch:
+        print(f"Esecuzione in modalità batch del file '{args.batch}'...")
+        import os
+        import importlib.util
+        from c64debugger.plugin.plugin_manager import _registered_scripts
+
+        if not os.path.exists(args.batch):
+            print(f"Errore: file di script batch '{args.batch}' non trovato.")
+            sys.exit(1)
+
+        try:
+            # Pulisci gli script precedentemente registrati
+            _registered_scripts.clear()
+
+            # Carica dinamicamente lo script
+            spec = importlib.util.spec_from_file_location("c64dbg_batch_script", args.batch)
+            if spec is None or spec.loader is None:
+                print(f"Errore: impossibile caricare lo script '{args.batch}'.")
+                sys.exit(1)
+
+            module = importlib.util.module_from_spec(spec)
+            sys.modules["c64dbg_batch_script"] = module
+            spec.loader.exec_module(module)
+
+            if not _registered_scripts:
+                print("Avviso: nessun blocco decorato con '@c64_script' trovato nello script.")
+            else:
+                for func in _registered_scripts:
+                    print(f"Esecuzione dello script: {func.__name__}...")
+                    func(repl)
+            print("Modalità batch completata con successo.")
+            repl.bridge.disconnect()
+            sys.exit(0)
+        except Exception as e:
+            print(f"Errore durante l'esecuzione del batch: {e}")
+            repl.bridge.disconnect()
+            sys.exit(1)
 
     try:
         repl.cmdloop()

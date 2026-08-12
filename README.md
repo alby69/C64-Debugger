@@ -3,14 +3,30 @@
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![Tests](https://img.shields.io/badge/tests-≥85%25-success)]()
-[![Version](https://img.shields.io/badge/version-0.5.0-orange)]()
+[![Version](https://img.shields.io/badge/version-0.6.0-green)]()
 
 Modulo **C64-Debugger** per l'ecosistema **C64-Intelligence-SDK**.
 Debugger Python avanzato per Commodore 64 con controllo remoto VICE, analisi AI e interfaccia moderna.
 
 ## Funzionalità Principali
 
-### v0.5.0 (Corrente — In Sviluppo / Fase 4)
+### v0.6.0 (Corrente — Fase 5)
+1. **Sistema a Plugin Dinamici** (`plugin/`):
+   - Architettura estensibile basata sulla classe base `C64DebuggerPlugin`.
+   - Hook completi del ciclo di vita: `on_plugin_load`, `on_plugin_unload`, `pre_breakpoint`, `post_breakpoint`, `pre_step`, `post_step`, `on_crash`.
+   - Registrazione dinamica dei comandi REPL direttamente dai plugin via `register_command()`.
+   - Comandi REPL: `load_plugin <filepath>`, `unload_plugin <name>`, `list_plugins`.
+
+2. **Scripting Python & Modalità Batch**:
+   - Decoratore `@c64_script` per contrassegnare funzioni Python come script di automazione eseguibili.
+   - Esecuzione non interattiva in background tramite l'opzione a riga di comando: `c64debugger --batch <script.py>`.
+
+3. **Server DAP (Debug Adapter Protocol)** (`dap/`):
+   - Server DAP leggero integrato su socket TCP per abilitare l'integrazione nativa con IDE (es. VS Code).
+   - Gestione delle richieste del protocollo standard: `initialize`, `launch`, `attach`, `setBreakpoints`, `stackTrace` (con ricostruzione stack 6502), `scopes`, `variables`, `next`, `continue`, `disconnect`.
+   - Avvio immediato tramite opzione a riga di comando: `c64debugger --dap-port <port>`.
+
+### v0.5.0 (Precedente — Fase 4)
 1. **Supporto Simboli & Label** (`symbols/`):
    - Parser automatico e robusto di file simboli generati da **ACME**, **KickAssembler**, **TMPx** e altri assemblatori.
    - Mappatura bidirezionale (nome simbolo $\leftrightarrow$ indirizzo di memoria).
@@ -94,6 +110,9 @@ All'interno della REPL `c64debugger` sono disponibili i seguenti comandi:
 - **`save_snapshot <filepath>` / `load_snapshot <filepath>`**: Salva/carica dump di RAM completi (.bin).
 - **`tui`**: Avvia l'interfaccia utente grafica interattiva a pieno schermo (TUI Dashboard).
 - **`profile <start|stop|reset|report>`**: Controlla il profiler delle prestazioni.
+- **`load_plugin <filepath>`**: Carica dinamicamente un plugin Python.
+- **`unload_plugin <name>`**: Rimuove un plugin caricato.
+- **`list_plugins`**: Elenca tutti i plugin attivi.
 - **`quit` / `exit`**: Esci dal debugger.
 
 ## Esempi d'Uso
@@ -102,6 +121,61 @@ Vedi directory `examples/`:
 - `memory_dump.py` — dump memoria con annotazioni
 - `stepping.py` — esecuzione passo-passo con stack trace
 - `ai_diagnose.py` — analisi crash con LLM (v0.4.0+)
+
+## Estensibilità, Scripting e DAP (v0.6.0)
+
+### 1. Scrivere un Plugin personalizzato
+
+Crea un file Python `mio_plugin.py`:
+```python
+from c64debugger.plugin.plugin_manager import C64DebuggerPlugin
+
+class MioPlugin(C64DebuggerPlugin):
+    name = "MioPlugin"
+    description = "Un plugin di esempio per stampare i passi"
+    version = "1.0.0"
+
+    def on_plugin_load(self, manager):
+        super().on_plugin_load(manager)
+        manager.register_command("saluta", self.cmd_saluta, "Stampa un saluto")
+
+    def cmd_saluta(self, *args):
+        print("Ciao dal plugin! Argomenti ricevuti:", args)
+
+    def post_step(self, regs):
+        print(f"Istruzione eseguita! PC corrente: ${regs.get('PC'):04X}")
+```
+Caricalo nella REPL con:
+```bash
+(c64dbg) load_plugin mio_plugin.py
+(c64dbg) saluta 1 2 3
+```
+
+### 2. Creare uno Script Batch
+
+Crea un file `automazione.py`:
+```python
+from c64debugger.plugin.plugin_manager import c64_script
+
+@c64_script
+def esegui_test(repl):
+    print("Inizio automazione batch...")
+    repl.onecmd("break $C000")
+    repl.onecmd("step")
+    print("Esecuzione terminata.")
+```
+Avvialo direttamente da terminale:
+```bash
+c64debugger --batch automazione.py
+```
+
+### 3. Debug Adapter Protocol (DAP)
+
+Per integrare C64-Debugger in IDE esterni come VS Code, avvia il server DAP:
+```bash
+c64debugger --dap-port 4711
+```
+Il server ascolterà sulla porta 4711 ed elaborerà messaggi JSON-RPC DAP standard per controllare l'emulatore.
 
 ## Architettura
 ```plain
