@@ -18,9 +18,12 @@ class C64SessionManager:
         Salva lo stato corrente del debugger in un file JSON (.c64dbg).
         """
         try:
+            watch_manager = getattr(core, "watch_manager", None)
+            watches_data = watch_manager.save_to_session() if watch_manager else []
+
             # Converti set e dizionari con chiavi intere in liste/stringhe serializzabili in JSON
             session_data = {
-                "version": "0.5.0",
+                "version": "0.7.5",
                 "breakpoints": list(core.breakpoints),
                 "breakpoint_conditions": {str(k): v for k, v in core.breakpoint_conditions.items()},
                 "hit_count_limits": {str(k): v for k, v in core.hit_count_limits.items()},
@@ -28,6 +31,7 @@ class C64SessionManager:
                 "watchpoints": list(core.watchpoints.keys()),
                 "watchpoint_ranges": core.watchpoint_ranges,
                 "io_breakpoints": core.io_breakpoints,
+                "watches": watches_data,
                 "loaded_symbols_path": loaded_symbols_path
             }
 
@@ -68,6 +72,11 @@ class C64SessionManager:
             # IO breakpoints
             raw_io = data.get("io_breakpoints", {})
             core.io_breakpoints = {k: tuple(v) if isinstance(v, list) else v for k, v in raw_io.items()}
+
+            # Formatted watches
+            watch_manager = getattr(core, "watch_manager", None)
+            if watch_manager:
+                watch_manager.load_from_session(data.get("watches", []))
 
             logger.info(f"Sessione di debug caricata e ripristinata da '{filepath}'")
             return data

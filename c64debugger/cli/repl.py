@@ -10,6 +10,8 @@ from c64debugger.symbols.symbol_manager import C64SymbolManager
 from c64debugger.hw_state import VICState, SIDState, CIAState
 from c64debugger.heatmap import MemoryHeatmap
 from c64debugger.reverse import TimelineEngine
+from c64debugger.watches import WatchManager
+from c64debugger.xref import XRefDatabase
 
 HISTORY_FILE = os.path.expanduser("~/.c64debugger_history")
 
@@ -36,6 +38,10 @@ class C64DebuggerREPL(cmd.Cmd):
         self.symbol_manager = C64SymbolManager()
         self.heatmap = MemoryHeatmap()
         self.timeline = TimelineEngine()
+        self.watch_manager = WatchManager()
+        self.core.watch_manager = self.watch_manager
+        self.xref_db = XRefDatabase()
+        self.core.xref_db = self.xref_db
         self.setup_history()
         from c64debugger.plugin.plugin_manager import C64PluginManager
         self.plugin_manager = C64PluginManager(core=self.core, bridge=self.bridge, repl=self)
@@ -155,6 +161,60 @@ class C64DebuggerREPL(cmd.Cmd):
             return
         self.core.add_watchpoint_range(start, end)
 
+    def do_add_watch(self, arg: str) -> None:
+        """
+        Aggiunge una watch di memoria formattata.
+        Sintassi: add_watch <indirizzo|simbolo> [formato]
+        Formati validi: hex8, hex16, hex32, s8, u8, s16, u16, s32, u32, text
+        Default: hex8
+        """
+        parts = arg.split()
+        if not parts:
+            print("Errore: specifica un indirizzo o simbolo.")
+            return
+        name_or_addr = parts[0]
+        fmt = parts[1] if len(parts) >= 2 else "hex8"
+        self.watch_manager.add_watch(name_or_addr, fmt)
+        print(f"Watch aggiunta per '{name_or_addr}' con formato '{fmt}'.")
+
+    def do_remove_watch(self, arg: str) -> None:
+        """
+        Rimuove una watch di memoria.
+        Sintassi: remove_watch <indirizzo|simbolo>
+        """
+        if not arg:
+            print("Errore: specifica l'indirizzo o simbolo della watch da rimuovere.")
+            return
+        removed = self.watch_manager.remove_watch(arg)
+        if removed:
+            print(f"Watch per '{arg}' rimossa.")
+        else:
+            print(f"Watch per '{arg}' non trovata.")
+
+    def do_watches(self, arg: str) -> None:
+        """
+        Mostra tutte le watch configurate e i loro valori correnti valutati.
+        Sintassi: watches
+        """
+        results = self.watch_manager.evaluate_watches(self.bridge, self.symbol_manager.get_address)
+        if not results:
+            print("Nessuna watch configurata.")
+            return
+        print("--- WATCH IN MEMORIA ---")
+        for r in results:
+            addr_str = f" (${r['address']:04X})" if r['address'] is not None else ""
+            print(f"  {r['name']}{addr_str:<8} [{r['format']}]: {r['value']}")
+
+    def complete_add_watch(self, text: str, line: str, begidx: int, endidx: int) -> List[str]:
+        parts = line.split()
+        if len(parts) >= 2 and not line.endswith(" "):
+            if len(parts) == 3 or (len(parts) == 2 and text in WatchManager.VALID_FORMATS):
+                return [f for f in WatchManager.VALID_FORMATS if f.startswith(text)]
+        return [name for name in self.symbol_manager.all_symbols().keys() if name.startswith(text)]
+
+    def complete_remove_watch(self, text: str, line: str, begidx: int, endidx: int) -> List[str]:
+        return [name for name in self.watch_manager.list_watches().keys() if name.startswith(text)]
+
     # --- COMANDO: step / s / z ---
     def do_step(self, arg: str) -> None:
         """Esegue un singolo step di istruzione."""
@@ -175,6 +235,33 @@ class C64DebuggerREPL(cmd.Cmd):
         # Registra nel profiler se attivo
         if self.profiler.is_running:
             self.profiler.record_sample(pc)
+
+        # XRef tracking
+        try:
+            import re
+            disasm_line = self.bridge.send_command(f"d {pc:04x} {pc:04x}")
+            from c64debugger.disasm.disassembler import VICEDisassemblerParser
+            instructions = VICEDisassemblerParser.parse_disassembly(disasm_line)
+            if instructions:
+                instr = instructions[0]
+                for offset in range(len(instr.bytes_data)):
+                    self.xref_db.record_access(pc + offset, pc, "X")
+
+                clean_op = instr.operand.strip()
+                if clean_op and not clean_op.startswith("#"):
+                    clean_op = re.sub(r'[(),]', ' ', clean_op).split()[0].strip()
+                    accessed_addr = self.parse_address(clean_op)
+                    if accessed_addr is not None:
+                        mnemonic = instr.mnemonic.upper()
+                        if mnemonic in ("STA", "STX", "STY"):
+                            self.xref_db.record_access(accessed_addr, pc, "W")
+                        elif mnemonic in ("ASL", "LSR", "ROL", "ROR", "INC", "DEC"):
+                            self.xref_db.record_access(accessed_addr, pc, "R")
+                            self.xref_db.record_access(accessed_addr, pc, "W")
+                        elif mnemonic not in ("JMP", "JSR"):
+                            self.xref_db.record_access(accessed_addr, pc, "R")
+        except Exception as e:
+            pass
 
         # Heatmap tracking
         if self.heatmap.enabled:
@@ -297,8 +384,18 @@ class C64DebuggerREPL(cmd.Cmd):
             for name, addr in sorted(symbols.items(), key=lambda x: x[1]):
                 print(f"  {name:<25} -> ${addr:04X} ({addr})")
 
+        elif category in ("watches", "w"):
+            self.do_watches("")
+
+        elif category in ("xref", "x"):
+            parts = arg.split()
+            if len(parts) >= 2:
+                self.do_xref(parts[1])
+            else:
+                print("Errore: specifica un indirizzo per l'info xref. Es: info xref $C000")
+
         else:
-            print(f"Categoria sconosciuta '{category}'. Scegli tra: registers, break, memory, profiler, symbols.")
+            print(f"Categoria sconosciuta '{category}'. Scegli tra: registers, break, memory, profiler, symbols, watches, xref.")
 
     # --- COMANDO: x (examine memory) ---
     def do_x(self, arg: str) -> None:
@@ -472,8 +569,45 @@ class C64DebuggerREPL(cmd.Cmd):
         tui.run()
 
     # --- AUTO-COMPLETAMENTO ---
+    def do_xref(self, arg: str) -> None:
+        """
+        Interroga le cross-reference di un indirizzo di memoria.
+        Mostra chi ha letto, scritto o eseguito quella cella.
+        Sintassi: xref <indirizzo|simbolo>
+        """
+        if not arg:
+            print("Errore: specifica un indirizzo o simbolo.")
+            return
+        addr = self.parse_address(arg)
+        if addr is None:
+            print(f"Errore: indirizzo o simbolo non valido '{arg}'.")
+            return
+
+        refs = self.xref_db.get_references(addr)
+        if not refs:
+            print(f"Nessuna cross-reference registrata per ${addr:04X}.")
+            return
+
+        print(f"--- CROSS-REFERENCES PER ${addr:04X} ---")
+        for r in sorted(refs, key=lambda x: x["timestamp"]):
+            context_str = ""
+            try:
+                disasm_line = self.bridge.send_command(f"d {r['pc']:04x} {r['pc']:04x}")
+                from c64debugger.disasm.disassembler import VICEDisassemblerParser
+                instrs = VICEDisassemblerParser.parse_disassembly(disasm_line)
+                if instrs:
+                    context_str = f" ({instrs[0].mnemonic} {instrs[0].operand})"
+            except Exception:
+                pass
+
+            type_label = "Read" if r["type"] == "R" else "Write" if r["type"] == "W" else "Execute"
+            print(f"  - {type_label:<8} da ${r['pc']:04X}{context_str}")
+
+    def complete_xref(self, text: str, line: str, begidx: int, endidx: int) -> List[str]:
+        return [name for name in self.symbol_manager.all_symbols().keys() if name.startswith(text)]
+
     def complete_info(self, text: str, line: str, begidx: int, endidx: int) -> List[str]:
-        options = ["registers", "break", "memory", "profiler", "symbols"]
+        options = ["registers", "break", "memory", "profiler", "symbols", "watches", "xref"]
         if not text:
             return options
         return [o for o in options if o.startswith(text)]
