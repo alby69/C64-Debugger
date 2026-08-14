@@ -187,14 +187,14 @@ class C64DebuggerTUI:
                 output.append(f"  Errore lettura stato hardware: {e}")
 
         elif self.view_mode == "heatmap":
-            output.append("\033[1;33m[MEMORY HEATMAP - DETTAGLIO ACCESSI]\033[0m")
+            output.append("\033[1;33m[MEMORY HEATMAP - DETTAGLIO ACCESSI (64x32)]\033[0m")
             if not self.heatmap.enabled:
                 output.append("\n  \033[91m[Heatmap Disabilitata] - Scrivi 'heatmap' per abilitarla.\033[0m")
             else:
                 try:
-                    start_addr = pc & 0xFF00
-                    mem_bytes = self.bridge.read_memory(start_addr, start_addr + 255)
-                    lines = self.heatmap.render_grid(start_addr, mem_bytes, pc)
+                    start_addr = pc & 0xF800
+                    mem_bytes = self.bridge.read_memory(start_addr, start_addr + 2047)
+                    lines = self.heatmap.render_heatmap_2d(start_addr, mem_bytes, pc)
                     output.extend(lines)
                 except Exception as e:
                     output.append(f"  Errore rendering heatmap: {e}")

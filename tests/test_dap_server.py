@@ -59,6 +59,40 @@ def test_dap_request_processing():
     assert res["success"] is True
     assert any(v["name"] == "A" and v["value"] == "$FF" for v in res["body"]["variables"])
 
+    # 6. Test Hardware Scopes
+    req_scopes = {"command": "scopes", "seq": 15}
+    res_scopes, evs = server._process_request(req_scopes, 6)
+    assert res_scopes["success"] is True
+    scopes = res_scopes["body"]["scopes"]
+    assert len(scopes) == 5
+    assert any(s["name"] == "VIC-II State" and s["variablesReference"] == 2000 for s in scopes)
+    assert any(s["name"] == "SID State" and s["variablesReference"] == 3000 for s in scopes)
+    assert any(s["name"] == "CIA1 State" and s["variablesReference"] == 4001 for s in scopes)
+    assert any(s["name"] == "CIA2 State" and s["variablesReference"] == 4002 for s in scopes)
+
+    # 7. Test Hardware Variables (VIC-II)
+    req_vic_vars = {"command": "variables", "seq": 16, "arguments": {"variablesReference": 2000}}
+    res_vic_vars, evs = server._process_request(req_vic_vars, 7)
+    assert res_vic_vars["success"] is True
+    assert any(v["name"] == "screen_on" for v in res_vic_vars["body"]["variables"])
+
+    # 8. Test Hardware Variables (SID)
+    req_sid_vars = {"command": "variables", "seq": 17, "arguments": {"variablesReference": 3000}}
+    res_sid_vars, evs = server._process_request(req_sid_vars, 8)
+    assert res_sid_vars["success"] is True
+    assert any(v["name"] == "volume" for v in res_sid_vars["body"]["variables"])
+
+    # 9. Test Hardware Variables (CIA1 & CIA2)
+    req_cia1_vars = {"command": "variables", "seq": 18, "arguments": {"variablesReference": 4001}}
+    res_cia1_vars, evs = server._process_request(req_cia1_vars, 9)
+    assert res_cia1_vars["success"] is True
+    assert any(v["name"] == "timer_a" for v in res_cia1_vars["body"]["variables"])
+
+    req_cia2_vars = {"command": "variables", "seq": 19, "arguments": {"variablesReference": 4002}}
+    res_cia2_vars, evs = server._process_request(req_cia2_vars, 10)
+    assert res_cia2_vars["success"] is True
+    assert any(v["name"] == "timer_b" for v in res_cia2_vars["body"]["variables"])
+
 
 def test_dap_socket_integration():
     # Find a free port
