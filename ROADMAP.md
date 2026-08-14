@@ -3,7 +3,7 @@
 **Progetto**: C64-Debugger (modulo di C64-Intelligence-SDK)
 **Linguaggio**: Python 3.10+
 **Licenza**: GPL v3
-**Ultimo aggiornamento**: 2026-08-11
+**Ultimo aggiornamento**: 2026-08-14
 
 ---
 
@@ -14,10 +14,11 @@ C64-Debugger si propone di diventare il debugger Python più avanzato per Commod
 - Controllo remoto nativo dell'emulatore VICE
 - Analisi intelligente dei crash e dei comportamenti anomali tramite LLM
 - Un'esperienza di debugging moderna, accessibile da CLI, TUI, API e IDE
+- Introspezione hardware in tempo reale, reverse debugging ed automazione avanzata ispirati ai migliori strumenti della scena retro-computing (come RetroDebugger)
 
 ---
 
-## Stato Attuale (v0.6.0) 🚧 IN SVILUPPO
+## Stato Attuale (v0.7.0-dev) 🚧 IN SVILUPPO
 
 | Componente | Stato | Note |
 |------------|-------|------|
@@ -38,6 +39,7 @@ C64-Debugger si propone di diventare il debugger Python più avanzato per Commod
 | Plugin System (v0.6.0) | ✅ Implementato | Architettura estensibile basata su classi con hook di ciclo di vita e comandi dinamici |
 | Batch & Scripting (v0.6.0) | ✅ Implementato | Esecuzione di script non interattivi con il decoratore `@c64_script` |
 | Debug Adapter Protocol (v0.6.0) | ✅ Implementato | Server DAP leggero integrato su socket per supportare integrazioni con IDE (VS Code) |
+| **Fase 0.7.0 Features** | 🚧 In Sviluppo | VIC/SID/CIA State, Memory Heatmap, Reverse Debugging Core |
 
 ---
 
@@ -106,9 +108,9 @@ C64-Debugger si propone di diventare il debugger Python più avanzato per Commod
 
 ---
 
-## Fase 4 — Interfaccia Utente & Tooling (v0.5.0) 🚧 IN SVILUPPO (Avanzamento Fase 4 completato!)
+## Fase 4 — Interfaccia Utente & Tooling (v0.5.0) ✅ COMPLETATA
 
-**Target**: 8 settimane | **Priorità**: Media | **ETA**: ~23 settimane totali
+**Target**: 8 settimane | **Priorità**: Media | **ETA**: Completata
 
 ### 4.1 TUI (Text User Interface)
 
@@ -165,78 +167,107 @@ C64-Debugger si propone di diventare il debugger Python più avanzato per Commod
 
 ---
 
-## Fase 6 — Performance & Affidabilità (v1.0.0) 📋 PIANIFICATA
+## Fase 6 — Hardware Introspection & Reverse Debugging (v0.7.0) 🚧 IN SVILUPPO
 
-**Target**: 8 settimane | **Priorità**: Media | **ETA**: ~39 settimane totali
+**Target**: 8 settimane | **Priorità**: Alta | **ETA**: ~31-39 settimane totali
 
-### 6.1 Ottimizzazioni
+### 6.1 VIC-II/SID/CIA State Inspection (`hw_state/`)
+Visualizzazione dettagliata e in tempo reale dei registri hardware e dello stato interno dei chip della macchina.
+- **VIC-II State**: Parsing $D000-$D02E, calcolo raster X/Y, bad line, sprite states, bank/screen/bitmap/charset pointers.
+- **SID State**: Parsing $D400-$D41C, conversione frequenza -> nota (A4 440Hz), estrazione forme d'onda.
+- **CIA State**: Parsing CIA1 ($DC00-$DC0F) e CIA2 ($DD00-$DD0F), timer A/B, interrupt flags, TOD clock.
+- **Integrazione**: Comandi REPL dedicati (`vic_state`, `sid_state`, `cia_state`), pannelli TUI ed espansione dei DAP scopes.
 
-| # | Task | Stato | Note |
-|---|------|-------|------|
-| 6.1.1 | Async I/O rewrite | 🔲 | `asyncio` per concorrenza TUI+LLM+VICE |
-| 6.1.2 | Connessione persistente | 🔲 | Socket aperto con reconnect |
-| 6.1.3 | Caching memoria | 🔲 | Cache lato Python con invalidazione |
+### 6.2 Memory Heatmap & Access Tracking (`heatmap/`)
+Mappatura bidimensionale e visualizzazione dell'accesso alla memoria con decay temporale configurabile.
+- **Heatmap Engine**: Tracciamento di read/write/execute per cella di memoria, con colore ANSI e decadimento.
+- **Integrazione**: Comando REPL `heatmap [on|off|reset]` e pannello TUI 2D (64x32).
 
-### 6.2 Compatibilità
-
-| # | Task | Stato | Note |
-|---|------|-------|------|
-| 6.2.1 | Multi-versione VICE | 🔲 | Test 3.6/3.7/3.8, gestione differenze |
-| 6.2.2 | Cross-platform | 🔲 | Windows (WSL/native), macOS, Linux |
-| 6.2.3 | Supporto altri emulatori | 🔲 | Esplorazione CCS64, Hoxs64 |
-
-### 6.3 Release & Distribuzione
-
-| # | Task | Stato | Note |
-|---|------|-------|------|
-| 6.3.1 | Package PyPI | 🔲 | `pip install c64-debugger` |
-| 6.3.2 | Binary standalone | 🔲 | PyInstaller/pex |
-| 6.3.3 | Changelog automatizzato | 🔲 | Da Conventional Commits |
-| 6.3.4 | Documentazione GitHub Pages | 🔲 | Hosting completo |
+### 6.3 Reverse Debugging Core (`reverse/`)
+Registrazione continua e replay di stati per eseguire il debug all'indietro.
+- **Timeline Engine**: Ring buffer di delta/completi RAM e CPU snapshot.
+- **Integrazione**: Comandi REPL `rewind`, `forward`, `backstep` e barra timeline TUI.
 
 ---
 
-## Miglioramenti Aggiuntivi (Backlog)
+## Fase 7 — Source-Level & Advanced Tooling (v0.7.5) 📋 PIANIFICATA
 
-| # | Feature | Priorità | Fase Target | Stato |
-|---|---------|----------|-------------|-------|
-| A1 | Parser formati C64 (PRG/D64/CRT) | Media | v0.5.x | 🔲 |
-| A2 | BASIC V2 Decoder | Bassa | v0.6.x | 🔲 |
-| A3 | Reverse Debugging (step backward) | Media | v0.7.0 | 🔲 |
-| A4 | VIC-II/SID/CIA State Inspection | Media | v0.5.x | 🔲 |
-| A5 | Memory Heatmap & Access Patterns | Bassa | v0.6.x | 🔲 |
-| A6 | Collaborative Debugging (session sharing) | Bassa | v0.7.0 | 🔲 |
-| A7 | Security Hardening (input validation, sandbox) | Alta | v0.3.x | ✅ |
+**Target**: 6 settimane | **Priorità**: Media-Alta
+
+### 7.1 KickAss .dbg Source-Level Debugging (`sourcemap/`)
+- **Parser .dbg**: Parsing XML dei metadati di KickAssembler per mappare istruzioni a codice sorgente originale.
+- **Integrazione**: Vista affiancata sorgente + disassembly nella TUI e mappatura source in DAP stackTrace.
+
+### 7.2 Advanced Watches & Data Formatting (`watches/`)
+- **Watches**: Formati di formattazione multipli (hex8/16/32, signed/unsigned 8/16/32, text) e auto-refresh.
+- **Sessioni**: Salvataggio watches persistenti in `.c64dbg`.
+
+### 7.3 Memory Cross-Reference (`xref/`)
+- **Cross-Reference**: Query "chi ha letto/scritto questa cella?" con cronologia degli accessi per istruzione.
+
+---
+
+## Fase 8 — Automation, Profiler & Drive Debugging (v0.8.0) 📋 PIANIFICATA
+
+**Target**: 8 settimane | **Priorità**: Media
+
+### 8.1 JukeBox Automation Engine (`jukebox/`)
+- **Automation**: Parser di playlist JSON per simulare pressione tasti, joystick, warp mode toggle, e dumping di memoria sincronizzato con i frame VIC-II.
+
+### 8.2 Champ-6502 Profiler Integration (`profiler_champ/`)
+- **Export standard**: Generazione di file `.pd` compatibili con Champ profiler ed esportazione report HTML con call graph.
+
+### 8.3 Drive 1541 Debugging (`drive1541/`)
+- **Drive Bridge**: Ispezione e debugging del drive 1541 (CPU, memoria, registri, breakpoint drive).
+
+### 8.4 Named Pipe / External API (`pipe_api/`)
+- **Named Pipe**: Server FIFO locale per il controllo del debugger da parte di strumenti esterni ed editor minimali.
+
+---
+
+## Fase 9 — File Formats & Web UI Foundation (v0.8.5) 📋 PIANIFICATA
+
+**Target**: 6 settimane | **Priorità**: Media-Bassa
+
+### 9.1 C64 File Format Parsers (`formats/`)
+- **Parsers**: Caricamento e parsing nativo di file PRG, D64, CRT, TAP, T64, REU, e SID (PSID).
+
+### 9.2 Web UI Foundation (`web_ui/`)
+- **Web UI**: Server FastAPI + WebSocket per lo streaming in tempo reale dello stato del debugger su browser web, con canvas per l'heatmap.
+
+---
+
+## Fase 10 — Performance & Affidabilità (v1.0.0) 📋 PIANIFICATA
+
+**Target**: 8 settimane | **Priorità**: Media
+
+### 10.1 Ottimizzazioni
+- **Async I/O rewrite**: Riscrittura asincrona con `asyncio` per la concorrenza di TUI + LLM + VICE.
+- **Caching memoria**: Cache locale con invalidazione strategica.
+
+### 10.2 Compatibilità
+- **Multi-versione VICE**: Test automatici e compatibilità con VICE 3.6/3.7/3.8.
+- **Cross-platform**: Supporto nativo certificato per Linux, macOS e Windows.
+
+### 10.3 Distribuzione
+- **PyPI & Standalone**: Pubblicazione su PyPI (`pip install c64-debugger`) e binari generati con PyInstaller.
 
 ---
 
 ## Timeline Riassuntiva Aggiornata
 ```text
-Settimane:  1  2  3  4  5  6  7  8  9  10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40
-|----Fase 1----|------Fase 2-------|--------Fase 3--------|--------Fase 4--------|--------Fase 5--------|--------Fase 6--------|
-Stabilizzazione     Core Avanzato        AI Agent           UI & Tooling           Ecosistema            Performance/Release
-✅ COMPLETATA      ✅ COMPLETATA       ✅ COMPLETATA       ✅ COMPLETATA          ✅ COMPLETATA          📋 PIANIFICATA
+Settimane:  1  2  3  4  5  6  7  8  9  10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52
+|----Fase 1----|------Fase 2-------|--------Fase 3--------|--------Fase 4--------|--------Fase 5--------|--------Fase 6--------|--Fase 7--|---Fase 8---|--Fase 9--|---Fase 10--|
+Stabilizzazione     Core Avanzato        AI Agent           UI & Tooling           Ecosistema            Introspezione/Rev      Source-L    Autom/Prof   Formats    v1.0 Release
+✅ COMPLETATA      ✅ COMPLETATA       ✅ COMPLETATA       ✅ COMPLETATA          ✅ COMPLETATA          🚧 IN SVILUPPO         📋 PIAN.    📋 PIAN.     📋 PIAN.   📋 PIAN.
 ```
-
-| Release | Milestone | ETA Cumulativa | Stato |
-|---------|-----------|----------------|-------|
-| **v0.2.0** | Stabilizzazione, test, logging, config | ✅ Completata | ✅ Completata |
-| **v0.3.0** | Breakpoint avanzati, disassembly, CLI REPL | ✅ Completata | ✅ Completata |
-| **v0.4.0** | Integrazione LLM, auto-analisi, auto-fix | ~15 settimane | ✅ Completata |
-| **v0.5.0** | TUI, simboli, snapshot sessioni | ~23 settimane | 🚧 In Sviluppo (Funzionalità core completate) |
-| **v0.6.0** | Plugin, VS Code, DAP, scripting | ~31 settimane | ✅ Completata |
-| **v1.0.0** | Performance, PyPI, documentazione | ~39 settimane | 📋 Pianificata |
 
 ---
 
 ## Metriche di Successo
 
-- Copertura test ≥ 85% (target v1.0.0: ≥90%)
-- Zero crash su test suite CI
-- Tempo di risposta comandi VICE < 50ms (in locale)
-- Supporto almeno 3 provider LLM (OpenAI, Anthropic, Ollama)
-- Documentazione API completa
-- ≥ 15 esempi d'uso funzionanti
-- Connessione e caricamento simboli in tempo reale
-- Salvataggio e ripristino di sessioni di debug
-- Distribuzione su PyPI via `pip install c64-debugger` (v1.0.0)
+- Copertura test ≥ 85% per tutti i moduli (nuovi e pre-esistenti).
+- Zero crash su test suite CI.
+- Tempo di risposta comandi VICE < 50ms (in locale).
+- Reverse debugging con tempo di rewind < 100ms.
+- Heatmap aggiornata con frame-rate confortevole nella TUI senza introdurre lag sul bridge di comunicazione.

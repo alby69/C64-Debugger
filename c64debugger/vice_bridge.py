@@ -189,6 +189,16 @@ class VICERemoteMonitorBridge:
         self.send_command(cmd)
         return True
 
+    def write_registers(self, regs: Dict[str, Union[int, str]]) -> bool:
+        """
+        Scrive i registri CPU usando il comando del monitor (es: '> PC c000').
+        """
+        for k, v in regs.items():
+            if k in ("PC", "A", "X", "Y", "SP") and isinstance(v, int):
+                cmd = f"> {k} {v:02x}" if k != "PC" else f"> {k} {v:04x}"
+                self.send_command(cmd)
+        return True
+
     def set_breakpoint(self, addr: int) -> bool:
         """
         Imposta un breakpoint ad un indirizzo specifico.

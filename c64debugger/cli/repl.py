@@ -7,6 +7,9 @@ from c64debugger.vice_bridge import VICERemoteMonitorBridge
 from c64debugger.disasm.memory_map import C64MemoryMap
 from c64debugger.disasm.profiler import C64Profiler
 from c64debugger.symbols.symbol_manager import C64SymbolManager
+from c64debugger.hw_state import VICState, SIDState, CIAState
+from c64debugger.heatmap import MemoryHeatmap
+from c64debugger.reverse import TimelineEngine
 
 HISTORY_FILE = os.path.expanduser("~/.c64debugger_history")
 
@@ -31,6 +34,8 @@ class C64DebuggerREPL(cmd.Cmd):
 
         self.profiler = C64Profiler()
         self.symbol_manager = C64SymbolManager()
+        self.heatmap = MemoryHeatmap()
+        self.timeline = TimelineEngine()
         self.setup_history()
         from c64debugger.plugin.plugin_manager import C64PluginManager
         self.plugin_manager = C64PluginManager(core=self.core, bridge=self.bridge, repl=self)
@@ -170,6 +175,39 @@ class C64DebuggerREPL(cmd.Cmd):
         # Registra nel profiler se attivo
         if self.profiler.is_running:
             self.profiler.record_sample(pc)
+
+        # Heatmap tracking
+        if self.heatmap.enabled:
+            self.heatmap.record_access(pc, 'X', pm=self.plugin_manager)
+            disasm_line = self.bridge.send_command(f"d {pc:04x} {pc:04x}")
+            from c64debugger.disasm.disassembler import VICEDisassemblerParser
+            instructions = VICEDisassemblerParser.parse_disassembly(disasm_line)
+            if instructions:
+                instr = instructions[0]
+                import re
+                hex_match = re.search(r'\$([0-9a-fA-F]+)', instr.operand)
+                if hex_match:
+                    try:
+                        accessed_addr = int(hex_match.group(1), 16)
+                        mnemonic = instr.mnemonic.upper()
+                        if mnemonic in ("STA", "STX", "STY"):
+                            self.heatmap.record_access(accessed_addr, 'W', pm=self.plugin_manager)
+                        elif mnemonic in ("ASL", "LSR", "ROL", "ROR", "INC", "DEC"):
+                            self.heatmap.record_access(accessed_addr, 'R', pm=self.plugin_manager)
+                            self.heatmap.record_access(accessed_addr, 'W', pm=self.plugin_manager)
+                        elif mnemonic not in ("JMP", "JSR"):
+                            self.heatmap.record_access(accessed_addr, 'R', pm=self.plugin_manager)
+                    except ValueError:
+                        pass
+
+        # Timeline recording
+        if self.timeline.enabled:
+            try:
+                ram = self.bridge.read_memory(0, 0xFFFF)
+                if len(ram) == 65536:
+                    self.timeline.record_state(ram, regs)
+            except Exception:
+                pass
 
         # Mostra i simboli corrispondenti se disponibili
         syms = self.symbol_manager.get_symbols(pc)
@@ -430,7 +468,7 @@ class C64DebuggerREPL(cmd.Cmd):
         Sintassi: tui
         """
         from c64debugger.tui.tui_manager import C64DebuggerTUI
-        tui = C64DebuggerTUI(self.bridge, self.core)
+        tui = C64DebuggerTUI(self.bridge, self.core, heatmap=self.heatmap, timeline=self.timeline)
         tui.run()
 
     # --- AUTO-COMPLETAMENTO ---
@@ -512,3 +550,208 @@ class C64DebuggerREPL(cmd.Cmd):
     def do_exit(self, arg: str) -> bool:
         """Alias per quit."""
         return self.do_quit(arg)
+
+    def do_vic_state(self, arg: str) -> None:
+        """Mostra lo stato del chip video VIC-II."""
+        try:
+            data = self.bridge.read_memory(0xD000, 0xD02E)
+            vic = VICState(data)
+            info = vic.to_dict()
+            print("--- STATO CHIP VIC-II ---")
+            print(f"  Riga Raster: {info['raster_line']} (Bad Line: {'SI' if info['bad_line'] else 'NO'})")
+            print(f"  Schermo Abilitato: {'SI' if info['screen_on'] else 'NO'}")
+            print(f"  Bitmap Mode: {'SI' if info['bitmap_mode'] else 'NO'} | Multicolor: {'SI' if info['multicolor_mode'] else 'NO'}")
+            print(f"  ECM: {'SI' if info['ecm'] else 'NO'} | Righe: {info['row_select']} | Colonne: {info['column_select']}")
+            print(f"  Video Matrix Offset: ${info['screen_matrix_base_offset']:04X}")
+            print(f"  Colore Bordo: {info['border_color']} | Background: {info['background_color']}")
+            print("  Sprite Abilitati:", ", ".join(f"S{i}" for i, en in enumerate(info['sprite_enable']) if en) or "Nessuno")
+        except Exception as e:
+            print(f"Errore lettura stato VIC-II: {e}")
+
+    def do_sid_state(self, arg: str) -> None:
+        """Mostra lo stato del chip audio SID."""
+        try:
+            data = self.bridge.read_memory(0xD400, 0xD41C)
+            sid = SIDState(data)
+            info = sid.to_dict()
+            print("--- STATO CHIP SID ---")
+            print(f"  Volume Generale: {info['volume']} | Cutoff: {info['cutoff_freq']} | Resonance: {info['resonance']}")
+            for v in info["voices"]:
+                print(f"  Voce {v['voice_index']}: Freq: {v['frequency_hz']} Hz | Nota: {v['note']} | Forma d'onda: {v['waveform']} | Gate: {'ON' if v['gate'] else 'OFF'}")
+        except Exception as e:
+            print(f"Errore lettura stato SID: {e}")
+
+    def do_cia_state(self, arg: str) -> None:
+        """Mostra lo stato dei chip CIA1 e CIA2."""
+        try:
+            data1 = self.bridge.read_memory(0xDC00, 0xDC0F)
+            cia1 = CIAState(data1, "CIA1")
+            info1 = cia1.to_dict()
+            print("--- STATO CHIP CIA1 (DC00-DC0F) ---")
+            print(f"  Timer A: {info1['timer_a']} ({'ATTIVO' if info1['timer_a_active'] else 'FERMO'})")
+            print(f"  Timer B: {info1['timer_b']} ({'ATTIVO' if info1['timer_b_active'] else 'FERMO'})")
+            print(f"  TOD Clock: {info1['tod']} (PM: {info1['tod_pm']})")
+            print(f"  Port A: ${info1['port_a']:02X} | Port B: ${info1['port_b']:02X}")
+
+            data2 = self.bridge.read_memory(0xDD00, 0xDD0F)
+            cia2 = CIAState(data2, "CIA2")
+            info2 = cia2.to_dict()
+            print("\n--- STATO CHIP CIA2 (DD00-DD0F) ---")
+            print(f"  Timer A: {info2['timer_a']} ({'ATTIVO' if info2['timer_a_active'] else 'FERMO'})")
+            print(f"  Timer B: {info2['timer_b']} ({'ATTIVO' if info2['timer_b_active'] else 'FERMO'})")
+            print(f"  TOD Clock: {info2['tod']} (PM: {info2['tod_pm']})")
+            print(f"  Port A: ${info2['port_a']:02X} | Port B: ${info2['port_b']:02X}")
+        except Exception as e:
+            print(f"Errore lettura stato CIA: {e}")
+
+    def do_heatmap(self, arg: str) -> None:
+        """
+        Controlla o visualizza il tracciamento della memory heatmap.
+        Sintassi:
+          heatmap [on|off|reset]
+          heatmap show [indirizzo_inizio] [lunghezza]
+        """
+        cmd = arg.strip().lower()
+        if not cmd:
+            print(f"Heatmap abilitata: {'SI' if self.heatmap.enabled else 'NO'}")
+            return
+
+        parts = cmd.split()
+        subcmd = parts[0]
+
+        if subcmd == "on":
+            self.heatmap.enabled = True
+            print("Memory heatmap abilitata.")
+        elif subcmd == "off":
+            self.heatmap.enabled = False
+            print("Memory heatmap disabilitata.")
+        elif subcmd == "reset":
+            self.heatmap.reset()
+            print("Dati heatmap resettati.")
+        elif subcmd == "show":
+            start_addr = 0xC000
+            length = 256
+            if len(parts) >= 2:
+                res = self.parse_address(parts[1])
+                if res is not None:
+                    start_addr = res
+            if len(parts) >= 3:
+                try:
+                    length = int(parts[2])
+                except ValueError:
+                    pass
+            end_addr = min(start_addr + length - 1, 0xFFFF)
+            try:
+                data = self.bridge.read_memory(start_addr, end_addr)
+                try:
+                    regs = self.bridge.get_registers()
+                    pc = regs.get("PC")
+                except Exception:
+                    pc = None
+                lines = self.heatmap.render_grid(start_addr, data, pc)
+                print(f"--- HEATMAP MEMORIA (${start_addr:04X}-${end_addr:04X}) ---")
+                for line in lines:
+                    print(line)
+            except Exception as e:
+                print(f"Errore lettura memoria per heatmap: {e}")
+        else:
+            print(f"Comando heatmap '{subcmd}' sconosciuto. Usa: on, off, reset, show [indirizzo_inizio] [lunghezza]")
+
+    def do_rewind(self, arg: str) -> None:
+        """
+        Torna indietro nel tempo della timeline.
+        Sintassi: rewind [passi]
+        """
+        if not self.timeline.enabled:
+            print("Timeline disabilitata. Abilitala con 'timeline_status enable'.")
+            return
+        steps = 1
+        if arg:
+            try:
+                steps = int(arg)
+            except ValueError:
+                print("Errore: specifica un numero valido di passi.")
+                return
+
+        state = self.timeline.rewind(steps)
+        if not state:
+            print("Nessun punto temporale a cui ritornare.")
+            return
+
+        # Ripristina lo stato nell'emulatore
+        try:
+            self.bridge.write_memory(0, state["ram"])
+            self.bridge.write_registers(state["registers"])
+            print(f"Timeline: riavvolto a index {self.timeline.current_index}/{len(self.timeline.snapshots)-1}")
+            regs = state["registers"]
+            print(f"PC corrente: ${regs.get('PC'):04X} A=${regs.get('A'):02X}")
+        except Exception as e:
+            print(f"Errore durante il ripristino dello stato: {e}")
+
+    def do_forward(self, arg: str) -> None:
+        """
+        Avanza nel tempo della timeline (se precedentemente riavvolto).
+        Sintassi: forward [passi]
+        """
+        if not self.timeline.enabled:
+            print("Timeline disabilitata.")
+            return
+        steps = 1
+        if arg:
+            try:
+                steps = int(arg)
+            except ValueError:
+                print("Errore: specifica un numero valido di passi.")
+                return
+
+        state = self.timeline.forward(steps)
+        if not state:
+            print("Nessun punto temporale futuro.")
+            return
+
+        # Ripristina lo stato nell'emulatore
+        try:
+            self.bridge.write_memory(0, state["ram"])
+            self.bridge.write_registers(state["registers"])
+            print(f"Timeline: avanzato a index {self.timeline.current_index}/{len(self.timeline.snapshots)-1}")
+            regs = state["registers"]
+            print(f"PC corrente: ${regs.get('PC'):04X} A=${regs.get('A'):02X}")
+        except Exception as e:
+            print(f"Errore durante il ripristino dello stato: {e}")
+
+    def do_backstep(self, arg: str) -> None:
+        """Alias per tornare indietro di esattamente 1 passo di istruzione."""
+        self.do_rewind("1")
+
+    def do_timeline_status(self, arg: str) -> None:
+        """
+        Mostra lo stato o controlla la timeline.
+        Sintassi:
+          timeline_status
+          timeline_status [enable|disable|reset]
+        """
+        cmd = arg.strip().lower()
+        if cmd == "enable":
+            self.timeline.enabled = True
+            print("Timeline abilitata.")
+            try:
+                ram = self.bridge.read_memory(0, 0xFFFF)
+                regs = self.bridge.get_registers()
+                if len(ram) == 65536 and regs:
+                    self.timeline.record_state(ram, regs)
+            except Exception:
+                pass
+        elif cmd == "disable":
+            self.timeline.enabled = False
+            print("Timeline disabilitata.")
+        elif cmd == "reset":
+            self.timeline.reset()
+            print("Timeline resettata.")
+        elif not cmd:
+            info = self.timeline.status()
+            print("--- STATO TIMELINE ---")
+            print(f"  Abilitata: {'SI' if info['enabled'] else 'NO'}")
+            print(f"  Snapshot totali: {info['total_snapshots']} / {info['max_snapshots']}")
+            print(f"  Indice corrente: {info['current_index']}")
+        else:
+            print("Comando non riconosciuto. Usa: timeline_status [enable|disable|reset]")
