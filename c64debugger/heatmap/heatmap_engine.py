@@ -86,3 +86,29 @@ class MemoryHeatmap:
                 hex_parts.append(f"{color}{val:02X}\033[0m")
             lines.append(f"  \033[95m${row_addr:04X}\033[0m:  " + " ".join(hex_parts))
         return lines
+
+    def render_heatmap_2d(self, start_addr: int, data: bytes, current_pc: Optional[int] = None) -> List[str]:
+        """
+        Genera una visualizzazione a griglia compatta 2D (64 colonne) di una porzione di memoria con heatmap,
+        utilizzando simboli a blocco singolo (es: '■').
+        """
+        lines = []
+        now = time.time()
+        cols = 64
+        rows = len(data) // cols
+        if len(data) % cols != 0:
+            rows += 1
+
+        for r in range(rows):
+            row_addr = start_addr + r * cols
+            cell_parts = []
+            for c in range(cols):
+                idx = r * cols + c
+                if idx >= len(data):
+                    break
+                addr = row_addr + c
+                val = data[idx]
+                color = self.get_ansi_color(addr, val, current_pc, now)
+                cell_parts.append(f"{color}■\033[0m")
+            lines.append(f"  \033[95m${row_addr:04X}\033[0m: " + "".join(cell_parts))
+        return lines

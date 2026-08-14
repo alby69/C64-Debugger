@@ -208,6 +208,26 @@ class C64DAPServer:
                         "name": "Registers",
                         "variablesReference": 1000,
                         "expensive": False
+                    },
+                    {
+                        "name": "VIC-II State",
+                        "variablesReference": 2000,
+                        "expensive": False
+                    },
+                    {
+                        "name": "SID State",
+                        "variablesReference": 3000,
+                        "expensive": False
+                    },
+                    {
+                        "name": "CIA1 State",
+                        "variablesReference": 4001,
+                        "expensive": False
+                    },
+                    {
+                        "name": "CIA2 State",
+                        "variablesReference": 4002,
+                        "expensive": False
                     }
                 ]
             }
@@ -221,6 +241,79 @@ class C64DAPServer:
                         vars_list.append({
                             "name": k,
                             "value": f"${v:04X}" if k == "PC" else f"${v:02X}",
+                            "variablesReference": 0
+                        })
+                except Exception:
+                    pass
+            elif ref == 2000:
+                try:
+                    from c64debugger.hw_state.vic_state import VICState
+                    vic_data = self.bridge.read_memory(0xD000, 0xD02E)
+                    vic = VICState(vic_data)
+                    info = vic.to_dict()
+                    for k, v in info.items():
+                        if isinstance(v, list):
+                            val_str = ", ".join(str(x) for x in v)
+                        elif isinstance(v, int) and "offset" in k:
+                            val_str = f"${v:04X}"
+                        else:
+                            val_str = str(v)
+                        vars_list.append({
+                            "name": k,
+                            "value": val_str,
+                            "variablesReference": 0
+                        })
+                except Exception:
+                    pass
+            elif ref == 3000:
+                try:
+                    from c64debugger.hw_state.sid_state import SIDState
+                    sid_data = self.bridge.read_memory(0xD400, 0xD41C)
+                    sid = SIDState(sid_data)
+                    info = sid.to_dict()
+                    for k, v in info.items():
+                        if k == "voices":
+                            for voice in v:
+                                v_idx = voice["voice_index"]
+                                for vk, vv in voice.items():
+                                    if vk != "voice_index":
+                                        vars_list.append({
+                                            "name": f"voice_{v_idx}_{vk}",
+                                            "value": str(vv),
+                                            "variablesReference": 0
+                                        })
+                        else:
+                            vars_list.append({
+                                "name": k,
+                                "value": str(v),
+                                "variablesReference": 0
+                            })
+                except Exception:
+                    pass
+            elif ref == 4001:
+                try:
+                    from c64debugger.hw_state.cia_state import CIAState
+                    cia_data = self.bridge.read_memory(0xDC00, 0xDC0F)
+                    cia = CIAState(cia_data, "CIA1")
+                    info = cia.to_dict()
+                    for k, v in info.items():
+                        vars_list.append({
+                            "name": k,
+                            "value": str(v),
+                            "variablesReference": 0
+                        })
+                except Exception:
+                    pass
+            elif ref == 4002:
+                try:
+                    from c64debugger.hw_state.cia_state import CIAState
+                    cia_data = self.bridge.read_memory(0xDD00, 0xDD0F)
+                    cia = CIAState(cia_data, "CIA2")
+                    info = cia.to_dict()
+                    for k, v in info.items():
+                        vars_list.append({
+                            "name": k,
+                            "value": str(v),
                             "variablesReference": 0
                         })
                 except Exception:
