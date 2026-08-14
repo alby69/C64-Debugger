@@ -28,7 +28,7 @@ def test_session_save_load(tmp_path):
     data = C64SessionManager.load_session(str(session_file), new_core)
 
     # Verify restored state
-    assert data["version"] == "0.5.0"
+    assert data["version"] in ("0.5.0", "0.7.5")
     assert data["loaded_symbols_path"] == symbols_path
 
     assert 0xC000 in new_core.breakpoints

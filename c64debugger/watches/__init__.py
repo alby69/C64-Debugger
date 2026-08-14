@@ -1,0 +1,1 @@
+from c64debugger.watches.watch_manager import WatchManager
