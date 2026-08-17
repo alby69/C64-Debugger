@@ -1,0 +1,14 @@
+name: debugger
+display_name: "C64-Debugger — Bridge VICE"
+version: "0.1.0"
+sdk_api_version: "1"
+description: "Bridge verso l'emulatore VICE (x64sc): attach, breakpoint, registri, memoria e analisi dei crash dump."
+entry_points:
+  cli: "c64debugger.cli:main"
+capabilities:
+  - debugger
+  - vice-bridge
+  - breakpoints
+  - crash-analysis
+requires_python: ">=3.8"
+standalone: true
